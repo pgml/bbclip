@@ -114,7 +114,12 @@ func (b *BBClip) buildUi() {
 
 	b.search, _ = gtk.EntryNew()
 	b.search.SetCanFocus(false)
-	b.search.SetPlaceholderText("Search")
+	b.search.SetIconFromIconName(gtk.ENTRY_ICON_PRIMARY, "system-search")
+	if err != nil {
+		log.Fatal("Failed to set icon:", err)
+	}
+
+	b.search.SetPlaceholderText("Search...")
 	b.search.Connect("button-press-event", b.onButtonPress)
 	b.search.Connect("key-release-event", b.onKeyRelease)
 
