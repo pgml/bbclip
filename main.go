@@ -222,6 +222,16 @@ func (b *BBClip) handleKeyEvents(key *gdk.EventKey) bool {
 		}
 	}
 
+	if key.State()&gdk.CONTROL_MASK != 0 {
+		switch key.KeyVal() {
+		case gdk.KEY_u:
+			b.halfViewUp()
+
+		case gdk.KEY_d:
+			b.halfViewDown()
+		}
+	}
+
 	return false
 }
 
@@ -338,6 +348,36 @@ func (b *BBClip) rowDown() {
 			break
 		}
 	}
+}
+
+// halfViewUp moves the selection one row up and repositions the view if needed
+func (b *BBClip) halfViewUp() {
+	_, _, rowsInView := b.rowInfo()
+
+	for range rowsInView / 2 {
+		b.rowUp()
+	}
+
+	b.repositionView()
+}
+
+// halfViewDown moves the selection one row up and repositions the view if needed
+func (b *BBClip) halfViewDown() {
+	_, _, rowsInView := b.rowInfo()
+
+	for range rowsInView / 2 {
+		b.rowDown()
+	}
+
+	b.repositionView()
+}
+
+func (b *BBClip) rowInfo() (rowHeight int, listViewHeight int, rowsInView int) {
+	rowHeight = b.entriesList.GetSelectedRow().GetAllocatedHeight()
+	listViewHeight = b.entriesListWrapper.GetAllocatedHeight()
+	rowsInView = listViewHeight / rowHeight
+
+	return rowHeight, listViewHeight, rowsInView
 }
 
 // goToTop moves the selection to the first row of the list and
