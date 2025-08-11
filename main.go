@@ -229,6 +229,9 @@ func (b *BBClip) handleKeyEvents(key *gdk.EventKey) bool {
 
 		case gdk.KEY_d:
 			b.halfViewDown()
+
+		case gdk.KEY_c:
+			gtk.MainQuit()
 		}
 	}
 
