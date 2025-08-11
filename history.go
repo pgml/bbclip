@@ -1,0 +1,182 @@
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"os"
+	"os/exec"
+	"slices"
+	"sync"
+	"time"
+
+	"github.com/adrg/xdg"
+)
+
+const HistoryFile = "org.pgml.bbclip-hist"
+
+type History struct {
+	mu         sync.RWMutex
+	maxEntries int
+	entries    []string
+	path       string
+}
+
+func NewHistory() *History {
+	path := xdg.DataHome + "/" + HistoryFile
+
+	if _, err := os.Stat(path); err != nil {
+		flags := os.O_CREATE | os.O_RDONLY
+
+		f, err := os.OpenFile(path, flags, 0644)
+		if err != nil {
+			println(err)
+		}
+		defer f.Close()
+	}
+
+	history := &History{
+		mu: sync.RWMutex{},
+		// @todo make config option `max-entries = 100`
+		maxEntries: *MaxEntries,
+		path:       path,
+	}
+
+	if *ClearHistory {
+		history.clear()
+	}
+
+	history.mu.RLock()
+	entries, err := history.Read()
+	history.entries = entries
+	history.mu.RUnlock()
+
+	if err != nil {
+		println(err)
+	}
+
+	if len(history.entries) > history.maxEntries {
+		exceeds := len(history.entries) - history.maxEntries
+		history.entries = slices.Delete(history.entries, 0, 0+exceeds)
+		history.Save()
+	}
+
+	return history
+}
+
+func (h *History) Init() {
+	go func() {
+		ticker := time.NewTicker(300 * time.Millisecond)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			out, err := exec.Command("wl-paste", "--no-newline").Output()
+			if err != nil {
+				continue
+			}
+
+			cont := string(bytes.TrimSpace(out))
+			if cont == "" {
+				continue
+			}
+
+			last := ""
+			if len(h.entries) > 0 {
+				last = h.entries[len(h.entries)-1]
+			}
+
+			if cont != last {
+				h.mu.Lock()
+
+				if ok, index := h.contains(cont); ok {
+					h.entries = slices.Delete(h.entries, index, index+1)
+				}
+
+				h.entries = append(h.entries, cont)
+
+				if err := h.Save(); err != nil {
+					println("Could not save to clipboard history:", err)
+				}
+
+				h.mu.Unlock()
+			}
+		}
+	}()
+}
+
+func (h *History) Read() ([]string, error) {
+	path := xdg.DataHome + "/" + HistoryFile
+	file, err := os.OpenFile(path, os.O_RDONLY, 0644)
+
+	if err != nil {
+		return []string{}, err
+	}
+	defer file.Close()
+
+	var history []string
+
+	err = json.NewDecoder(file).Decode(&history)
+
+	return history, nil
+
+}
+
+func (h *History) Save() error {
+	file, err := os.OpenFile(h.path, os.O_WRONLY, 0644)
+
+	if err != nil {
+		println(err)
+		return err
+	}
+	defer file.Close()
+
+	return json.NewEncoder(file).Encode(h.entries)
+}
+
+func (h *History) WriteToClipboard(text string) error {
+	cmd := exec.Command("wl-copy", "--type", "text/plain", "--foreground")
+	stdin, err := cmd.StdinPipe()
+
+	if err != nil {
+		return err
+	}
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	go func() {
+		defer stdin.Close()
+		io.WriteString(stdin, text)
+	}()
+
+	go func() {
+		cmd.Wait()
+	}()
+
+	return nil
+}
+
+func (h *History) clear() error {
+	f, err := os.OpenFile(h.path, os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.WriteString("")
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *History) contains(text string) (bool, int) {
+	if slices.Contains(h.entries, text) {
+		return true, slices.Index(h.entries, text)
+	}
+
+	return false, -1
+}

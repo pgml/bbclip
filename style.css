@@ -1,0 +1,64 @@
+scrolledwindow undershoot.top,
+scrolledwindow undershoot.right,
+scrolledwindow undershoot.bottom,
+scrolledwindow undershoot.left { background-image: none; }
+
+.popup-wrapper {
+	border-radius: 5px;
+	background-color: inherit;
+	border: 1px solid #bbb;
+}
+
+.search {
+	margin: 12px;
+	margin-bottom: 0;
+}
+
+.entries-list {
+	background-color: inherit;
+	padding: 10px;
+}
+
+.entries-list-row {
+	border-radius: 5px;
+	padding: 0px 12px;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+
+/* --- bbclip theme */
+
+.bbclip .popup-wrapper {
+	background-color: rgba(230, 230, 230, 0.98);
+}
+
+.bbclip .search {
+	border: 0;
+	border-bottom: 2px solid #55aaff;
+	border-radius: 5px;
+	padding: 4px 12px;
+}
+
+.bbclip .search:focus {
+	border: 0;
+	border-bottom: 1px solid #55aaff;
+}
+
+.bbclip .entries-list {
+	background-color: inherit;
+	padding: 10px;
+	/*margin: 0px;*/
+	/*border: 0px;*/
+}
+
+.bbclip .entries-list-row {
+	border-radius: 5px;
+	padding: 2px 12px;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.bbclip .entries-list-row:selected {
+	background-color: #4387ca;
+	/* border: 1px solid #356ba0;*/
+	/*padding:0 12px;*/
+}
