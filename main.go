@@ -56,6 +56,8 @@ type BBClip struct {
 	// entriesList is the history entries list view
 	entriesList *gtk.ListBox
 
+	entryItemsContent map[int]string
+
 	// cssProvider is the gtk css provider
 	cssProvider *gtk.CssProvider
 
@@ -126,6 +128,7 @@ func (b *BBClip) buildUi() {
 	b.entriesList.SetSelectionMode(gtk.SELECTION_SINGLE)
 	b.entriesList.SetMarginBottom(6)
 	b.entriesList.Connect("row-activated", b.onRowActivated)
+	b.entryItemsContent = make(map[int]string)
 
 	b.entriesListWrapper, _ = gtk.ScrolledWindowNew(nil, nil)
 	b.entriesListWrapper.SetSizeRequest(350, 450)
@@ -291,21 +294,26 @@ func (b *BBClip) selectAndHide(row *gtk.ListBoxRow) {
 		return
 	}
 
-	child, _ := row.GetChild()
-	label, err := gtk.WidgetToLabel(child.ToWidget())
-
-	if err == nil {
-		text, _ := label.GetName()
-
-		// Move the selected row to the first position of the history list
-		if ok, index := b.history.contains(text); ok {
-			entries := b.history.entries
-			b.history.entries = slices.Delete(entries, index, index+1)
+	content := ""
+	for i, itemContent := range b.entryItemsContent {
+		if row.GetIndex() == i {
+			content = itemContent
+			break
 		}
-
-		b.history.WriteToClipboard(text)
-		b.window.Hide()
 	}
+
+	if content == "" {
+		b.window.Hide()
+		return
+	}
+
+	if ok, index := b.history.contains(content); ok {
+		entries := b.history.entries
+		b.history.entries = slices.Delete(entries, index, index+1)
+	}
+
+	b.history.WriteToClipboard(content)
+	b.window.Hide()
 }
 
 // rowUp moves the selection one row up and repositions the view if needed
@@ -450,16 +458,13 @@ func (b *BBClip) refreshEntryList() {
 
 	for i := len(entries) - 1; i >= 0; i-- {
 		// truncate the preview
-		name := strings.ReplaceAll(entries[i], "\n", " ")
-		name = TruncateText(name, 42)
+		preview := strings.ReplaceAll(entries[i], "\n", " ")
+		preview = TruncateText(preview, 42)
 
 		// the real clipboard content
-		text := entries[i]
+		content := entries[i]
 
-		label, _ := gtk.LabelNew(name)
-		// set the real content as the name
-		// there's probably a better way to do this.
-		label.SetName(text)
+		label, _ := gtk.LabelNew(preview)
 		label.SetMarginTop(6)
 		label.SetMarginBottom(6)
 		label.SetXAlign(0)
@@ -469,6 +474,8 @@ func (b *BBClip) refreshEntryList() {
 		row.ShowAll()
 
 		b.addContextClass(row.ToWidget(), "entries-list-row")
+
+		b.entryItemsContent[entryIndex] = content
 		b.entriesList.Add(row)
 
 		entryIndex++
