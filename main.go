@@ -69,12 +69,12 @@ func main() {
 		return
 	}
 
-	gtk.Init(nil)
-
 	if tryConnectSocket() {
 		fmt.Println("Another instance already running. Exiting.")
 		return
 	}
+
+	gtk.Init(nil)
 
 	bbclip := BBClip{history: &History{}}
 	bbclip.buildUi()
@@ -115,10 +115,6 @@ func (b *BBClip) buildUi() {
 	b.search, _ = gtk.EntryNew()
 	b.search.SetCanFocus(false)
 	b.search.SetIconFromIconName(gtk.ENTRY_ICON_PRIMARY, "system-search")
-	if err != nil {
-		log.Fatal("Failed to set icon:", err)
-	}
-
 	b.search.SetPlaceholderText("Search...")
 	b.search.Connect("button-press-event", b.onButtonPress)
 	b.search.Connect("key-release-event", b.onKeyRelease)
@@ -180,8 +176,6 @@ func (b *BBClip) listenSocket() {
 					b.window.ShowAll()
 					b.window.Present()
 					b.window.Deiconify()
-					b.goToTop()
-
 					b.visTime = time.Now()
 				})
 			}
@@ -195,11 +189,17 @@ func (b *BBClip) handleKeyEvents(key *gdk.EventKey) bool {
 
 	switch name {
 	case "Escape":
+		sinceShow := time.Since(b.visTime)
 		if b.search.HasFocus() {
 			b.focusEntryList()
 			return true
 		} else {
-			b.window.Hide()
+			// On some occasions the escape key gets magically triggered
+			// for somereaonse right after the window was called.
+			// Delaying the action seems to fix it.
+			if sinceShow > 200*time.Millisecond {
+				b.window.Hide()
+			}
 		}
 
 	case "Return":
@@ -438,6 +438,7 @@ func (b *BBClip) refreshEntryList() {
 	for e := children; e != nil; e = e.Next() {
 		child := e.Data().(*gtk.Widget)
 		b.entriesList.Remove(child)
+		child.Destroy()
 	}
 
 	entryIndex := 0
