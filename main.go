@@ -32,6 +32,7 @@ var (
 	SystemTheme  = flag.Bool("system-theme", false, "Uses the system gtk theme")
 	MaxEntries   = flag.Int("max-entries", 100, "Maximum amount of clipboard entries the history should hold")
 	LayerShell   = flag.Bool("layer-shell", true, "Use layer shell instead of window")
+	Silent       = flag.Bool("silent", false, "Starts bbclip silently in the background")
 )
 
 type BBClip struct {
@@ -79,7 +80,9 @@ func main() {
 	bbclip := BBClip{history: &History{}}
 	bbclip.buildUi()
 	bbclip.listenSocket()
-	bbclip.window.ShowAll()
+	if !*Silent {
+		bbclip.window.ShowAll()
+	}
 
 	gtk.Main()
 }
