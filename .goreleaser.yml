@@ -1,0 +1,55 @@
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+project_name: bbclip
+
+before:
+  hooks:
+    - go mod tidy
+    # - go generate ./...
+
+builds:
+  - main: ./
+    env:
+    - CGO_ENABLED=0
+    goos:
+      - linux
+      #- windows
+      #- darwin
+    ldflags:
+      - -s -w
+      - -X main/app.version={{.Version}}
+      - -X main/app.commit={{.ShortCommit}}
+
+archives:
+  - formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: '{{ .Tag }}-next'
+
+changelog:
+  use: github-native
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  footer: >-
+
+    ---
