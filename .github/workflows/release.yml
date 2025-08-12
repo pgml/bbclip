@@ -86,7 +86,7 @@ jobs:
       - name: Install native dependencies (GTK + GCC)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libglib2.0-dev libgtk-layer-shell-dev gcc
+          sudo apt-get install -y libgtk-3-dev libglib2.0-dev libgtk-layer-shell-dev gcc build-essential libc6-dev
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
