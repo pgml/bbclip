@@ -176,6 +176,7 @@ func (b *BBClip) listenSocket() {
 					b.window.ShowAll()
 					b.window.Present()
 					b.window.Deiconify()
+					b.goToTop()
 					b.visTime = time.Now()
 				})
 			}
