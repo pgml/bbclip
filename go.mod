@@ -1,4 +1,4 @@
-module test
+module bbclip
 
 go 1.24.4
 

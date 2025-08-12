@@ -264,8 +264,7 @@ func (b *BBClip) searchAndFocus(query string, ignoreCase bool) {
 			},
 		}
 
-		child, _ := row.GetChild()
-		rowContent, _ := child.(*gtk.Label).GetName()
+		rowContent := b.entryItemsContent[row.GetIndex()]
 
 		if ignoreCase {
 			rowContent = strings.ToLower(rowContent)
@@ -298,13 +297,7 @@ func (b *BBClip) selectAndHide(row *gtk.ListBoxRow) {
 		return
 	}
 
-	content := ""
-	for i, itemContent := range b.entryItemsContent {
-		if row.GetIndex() == i {
-			content = itemContent
-			break
-		}
-	}
+	content := b.entryItemsContent[row.GetIndex()]
 
 	if content == "" {
 		b.window.Hide()
@@ -316,7 +309,11 @@ func (b *BBClip) selectAndHide(row *gtk.ListBoxRow) {
 		b.history.entries = slices.Delete(entries, index, index+1)
 	}
 
-	b.history.WriteToClipboard(content)
+	if err := b.history.WriteToClipboard(content); err != nil {
+		println("Could not write to clipboard:", err)
+	} else {
+		println(err)
+	}
 	b.window.Hide()
 }
 
@@ -505,8 +502,8 @@ func (b *BBClip) refreshEntryList() {
 
 		b.addContextClass(row.ToWidget(), "entries-list-row")
 
-		b.entryItemsContent[row.GetIndex()] = content
 		b.entriesList.Add(row)
+		b.entryItemsContent[row.GetIndex()] = content
 	}
 
 	b.entriesList.GrabFocus()
