@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -209,6 +210,9 @@ func (b *BBClip) handleKeyEvents(key *gdk.EventKey) bool {
 			}
 		}
 
+	case "Delete":
+		b.deleteSelectedRow()
+
 	case "Return":
 		if b.entriesList != nil {
 			row := b.entriesList.GetSelectedRow()
@@ -314,6 +318,32 @@ func (b *BBClip) selectAndHide(row *gtk.ListBoxRow) {
 
 	b.history.WriteToClipboard(content)
 	b.window.Hide()
+}
+
+// deleteSelectedRow removes the selected row from the clipboard history
+// and moves the selected row to the same spot of the previously
+// selected row.
+func (b *BBClip) deleteSelectedRow() {
+	if b.entriesList == nil {
+		return
+	}
+
+	row := b.entriesList.GetSelectedRow()
+	rowIndex := row.GetIndex()
+	rowName, _ := row.GetName()
+	entryIndex, _ := strconv.Atoi(rowName)
+
+	if index, _ := b.history.removeEntry(entryIndex); index > -1 {
+		b.refreshEntryList()
+
+		// move the selection to the same spot the deletion took place
+		rowIndex = Clamp(rowIndex, 0, len(b.history.entries)-1)
+		prevRow := b.entriesList.GetRowAtIndex(rowIndex)
+
+		if prevRow.IsVisible() {
+			b.entriesList.SelectRow(prevRow)
+		}
+	}
 }
 
 // rowUp moves the selection one row up and repositions the view if needed
@@ -453,7 +483,6 @@ func (b *BBClip) refreshEntryList() {
 		child.Destroy()
 	}
 
-	entryIndex := 0
 	entries := b.history.entries
 
 	for i := len(entries) - 1; i >= 0; i-- {
@@ -470,15 +499,14 @@ func (b *BBClip) refreshEntryList() {
 		label.SetXAlign(0)
 
 		row, _ := gtk.ListBoxRowNew()
+		row.SetName(strconv.Itoa(i))
 		row.Add(label)
 		row.ShowAll()
 
 		b.addContextClass(row.ToWidget(), "entries-list-row")
 
-		b.entryItemsContent[entryIndex] = content
+		b.entryItemsContent[row.GetIndex()] = content
 		b.entriesList.Add(row)
-
-		entryIndex++
 	}
 
 	b.entriesList.GrabFocus()

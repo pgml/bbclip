@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -122,7 +123,7 @@ func (h *History) Read() ([]string, error) {
 }
 
 func (h *History) Save() error {
-	file, err := os.OpenFile(h.path, os.O_WRONLY, 0644)
+	file, err := os.OpenFile(h.path, os.O_WRONLY|os.O_TRUNC, 0644)
 
 	if err != nil {
 		println(err)
@@ -157,6 +158,33 @@ func (h *History) WriteToClipboard(text string) error {
 	return nil
 }
 
+func (h *History) removeEntry(index int) (int, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if index >= len(h.entries) {
+		return -1, errors.New("No entry found")
+	}
+
+	// check if we're deleting the last entry (which would be the first
+	// entry in the history view in the gui)
+	isLastEntry := index == len(h.entries)-1
+
+	h.entries = slices.Delete(h.entries, index, index+1)
+
+	// is last entry, we set the clipboard to the new last entry
+	// so that the goroutine doesn't override our deletion
+	if isLastEntry {
+		h.WriteToClipboard(h.entries[len(h.entries)-1])
+	}
+
+	if err := h.Save(); err != nil {
+		println("Could not save to clipboard history:", err)
+		return -1, err
+	}
+	return index, nil
+}
+
 func (h *History) clear() error {
 	f, err := os.OpenFile(h.path, os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
@@ -173,9 +201,9 @@ func (h *History) clear() error {
 	return nil
 }
 
-func (h *History) contains(text string) (bool, int) {
-	if slices.Contains(h.entries, text) {
-		return true, slices.Index(h.entries, text)
+func (h *History) contains(content string) (bool, int) {
+	if slices.Contains(h.entries, content) {
+		return true, slices.Index(h.entries, content)
 	}
 
 	return false, -1
