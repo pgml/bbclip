@@ -12,11 +12,9 @@ before:
 builds:
   - main: ./
     env:
-    - CGO_ENABLED=0
+    - CGO_ENABLED=1
     goos:
       - linux
-      #- windows
-      #- darwin
     ldflags:
       - -s -w
       - -X main/app.version={{.Version}}
