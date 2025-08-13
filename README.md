@@ -39,6 +39,9 @@ Currently the following arguments are available:
 --silent=true|false             Starts bbclip silently in the background (default: false)
 ```
 
+You can write the same flags (without the double dashes) in `~/.config/bbclip/config` to make it persistent.
+
+
 ## Styling
 
 Create a `style.css` in `~/.config/bbclip/` and use the following classes:
@@ -69,7 +72,3 @@ Create a `style.css` in `~/.config/bbclip/` and use the following classes:
  * libgtk-layer-shell-dev
  * gcc
  * pkg-config
-
-## Plans
-
-* [ ] Config file

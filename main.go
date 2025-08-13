@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -23,6 +22,7 @@ const (
 	socketPath      = "/tmp/bbclip.sock"
 	confDirName     = "bbclip"
 	userCssFileName = "style.css"
+	userConfFile    = "config"
 )
 
 //go:embed style.css
@@ -33,12 +33,12 @@ var (
 	dev     string
 	commit  string
 
-	ShowVersion  = flag.Bool("version", false, "Shows the version")
-	ClearHistory = flag.Bool("clear-history", false, "Clears the history")
-	SystemTheme  = flag.Bool("system-theme", false, "Uses the system gtk theme")
-	MaxEntries   = flag.Int("max-entries", 100, "Maximum amount of clipboard entries the history should hold")
-	LayerShell   = flag.Bool("layer-shell", true, "Use layer shell instead of window")
-	Silent       = flag.Bool("silent", false, "Starts bbclip silently in the background")
+	flagShowVersion  = flag.Bool("version", false, "Shows the version")
+	flagClearHistory = flag.Bool("clear-history", false, "Clears the history")
+	flagSystemTheme  = flag.Bool("system-theme", false, "Uses the system gtk theme")
+	flagMaxEntries   = flag.Int("max-entries", 100, "Maximum amount of clipboard entries the history should hold")
+	flagLayerShell   = flag.Bool("layer-shell", true, "Use layer shell instead of window")
+	flagSilent       = flag.Bool("silent", false, "Starts bbclip silently in the background")
 )
 
 type BBClip struct {
@@ -68,12 +68,14 @@ type BBClip struct {
 	cssProvider *gtk.CssProvider
 
 	visTime time.Time
+
+	conf *Config
 }
 
 func main() {
 	flag.Parse()
 
-	if *ShowVersion {
+	if *flagShowVersion {
 		printVersion()
 		return
 	}
@@ -85,10 +87,14 @@ func main() {
 
 	gtk.Init(nil)
 
-	bbclip := BBClip{history: &History{}}
+	bbclip := BBClip{
+		history: &History{},
+		conf:    NewConfig(),
+	}
+
 	bbclip.buildUi()
 	bbclip.listenSocket()
-	if !*Silent {
+	if !*flagSilent {
 		bbclip.window.ShowAll()
 	}
 
@@ -98,7 +104,13 @@ func main() {
 // buildUi builds the main ui, applies css style and populates the
 // clipboard history.
 func (b *BBClip) buildUi() {
-	b.history = NewHistory()
+	maxEntries := b.conf.maxEntries
+
+	if IsFlagPassed("max-entries") {
+		maxEntries = *flagMaxEntries
+	}
+
+	b.history = NewHistory(maxEntries)
 	b.history.Init()
 
 	var err error
@@ -108,7 +120,18 @@ func (b *BBClip) buildUi() {
 		log.Fatal("Unable to create window:", err)
 	}
 
-	if *LayerShell {
+	layerShell := true
+
+	if !b.conf.layerShell {
+		layerShell = false
+	}
+
+	// overwrite if cli flag is found
+	if IsFlagPassed("layer-shell") {
+		layerShell = *flagLayerShell
+	}
+
+	if layerShell {
 		// @todo make config option: `use-layer-shell = true`
 		layershell.InitForWindow(b.window)
 		layershell.SetNamespace(b.window, "gtk-layer-shell")
@@ -538,7 +561,12 @@ func (b *BBClip) applyStyles() {
 		fmt.Println(err)
 	}
 
-	if !*SystemTheme {
+	addAppTheme := true
+	if *flagSystemTheme || b.conf.systemTheme {
+		addAppTheme = false
+	}
+
+	if addAppTheme {
 		b.addContextClass(&b.window.Widget, "bbclip")
 	}
 
@@ -623,22 +651,6 @@ func tryConnectSocket() bool {
 	return true
 }
 
-// ConfigDir returns the config directory
-func ConfigDir() (string, error) {
-	ConfigDir, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-
-	confDir := filepath.Join(ConfigDir, confDirName)
-
-	if _, err := os.Stat(confDir); err != nil {
-		os.Mkdir(confDir, 0755)
-	}
-
-	return confDir, nil
-}
-
 // TruncateText shortens the given text to fit within maxWidth.
 // If the text exceeds maxWidth, it appends "..." (if possible).
 func TruncateText(text string, maxWidth int) string {
@@ -663,4 +675,14 @@ func printVersion() {
 	if commit != "" && dev == "" {
 		fmt.Printf("%s %s (%s)\n", "bbclip", version, commit)
 	}
+}
+
+func IsFlagPassed(name string) bool {
+	found := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
 }

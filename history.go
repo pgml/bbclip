@@ -23,7 +23,7 @@ type History struct {
 	path       string
 }
 
-func NewHistory() *History {
+func NewHistory(maxEntries int) *History {
 	path := xdg.DataHome + "/" + HistoryFile
 
 	if _, err := os.Stat(path); err != nil {
@@ -39,11 +39,11 @@ func NewHistory() *History {
 	history := &History{
 		mu: sync.RWMutex{},
 		// @todo make config option `max-entries = 100`
-		maxEntries: *MaxEntries,
+		maxEntries: maxEntries,
 		path:       path,
 	}
 
-	if *ClearHistory {
+	if *flagClearHistory {
 		history.clear()
 	}
 
