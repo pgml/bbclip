@@ -46,10 +46,11 @@ You can write the same flags (without the double dashes) in `~/.config/bbclip/co
 
 Create a `style.css` in `~/.config/bbclip/` and use the following classes:
 
-`.popup-wrapper {}` - The main popup window (GtkBox)
-`.search {}` - The search input (GtkEntry)
-`.entries-list {}` - The history items list (GtkListBox)
-`.entries-list-row {}` - A history item row (GtkListBoxRow)
+- `.popup-wrapper {}` - The main popup window (GtkBox)
+- `.search {}` - The search input (GtkEntry)
+- `.entries-list {}` - The history items list (GtkListBox)
+- `.entries-list-row {}` - A history item row (GtkListBoxRow)
+
 
 ---
 > [!NOTE]
