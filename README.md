@@ -13,6 +13,7 @@ Not many
  * Persistent clipboard
  * Filter/search in clipboard content
  * Basic vim bindings so you don't have to touch your mouse ever again
+ * Custom [Styling](#Styling) with GTK+ CSS
 
 ## Keybinds
 
@@ -38,12 +39,20 @@ Currently the following arguments are available:
 --silent=true|false             Starts bbclip silently in the background (default: false)
 ```
 
+## Styling
+
+Create a `style.css` in `~/.config/bbclip/` and use the following classes:
+
+`.popup-wrapper {}` - The main popup window (GtkBox)
+`.search {}` - The search input (GtkEntry)
+`.entries-list {}` - The history items list (GtkListBox)
+`.entries-list-row {}` - A history item row (GtkListBoxRow)
+
 ---
 > [!NOTE]
 > I recommended to start `bbclip` with your system via `bbclip --silent` otherwise it would just start monitoring your clipboard after you first launched the app.
 > This basically just spawns `bbclip` silently in the background.
 ---
-
 
 ## Requirements
 
@@ -64,4 +73,3 @@ Currently the following arguments are available:
 ## Plans
 
 * [ ] Config file
-* [ ] Custom styling

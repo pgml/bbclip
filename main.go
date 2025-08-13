@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -18,7 +19,11 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 )
 
-const socketPath = "/tmp/bbclip.sock"
+const (
+	socketPath      = "/tmp/bbclip.sock"
+	confDirName     = "bbclip"
+	userCssFileName = "style.css"
+)
 
 //go:embed style.css
 var defaultStyle []byte
@@ -529,6 +534,10 @@ func (b *BBClip) applyStyles() {
 		gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
 	)
 
+	if err := b.injectUserStyles(screen); err != nil {
+		fmt.Println(err)
+	}
+
 	if !*SystemTheme {
 		b.addContextClass(&b.window.Widget, "bbclip")
 	}
@@ -537,6 +546,27 @@ func (b *BBClip) applyStyles() {
 	b.addContextClass(&b.entriesListWrapper.Widget, "entries-list-wrapper")
 	b.addContextClass(&b.entriesList.Widget, "entries-list")
 	b.addContextClass(&b.popupWrapper.Widget, "popup-wrapper")
+}
+
+func (b *BBClip) injectUserStyles(screen *gdk.Screen) error {
+	confDir, _ := ConfigDir()
+	userFile := confDir + "/" + userCssFileName
+
+	if _, err := os.Stat(userFile); err == nil {
+		userProvider, _ := gtk.CssProviderNew()
+
+		if err := userProvider.LoadFromPath(userFile); err != nil {
+			return fmt.Errorf("Unabled to load or parse user CSS: %s", err)
+		}
+
+		gtk.AddProviderForScreen(
+			screen,
+			userProvider,
+			gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+		)
+	}
+
+	return nil
 }
 
 func (b *BBClip) addContextClass(widget *gtk.Widget, className string) {
@@ -591,6 +621,22 @@ func tryConnectSocket() bool {
 	conn.Write([]byte("SHOW\n"))
 
 	return true
+}
+
+// ConfigDir returns the config directory
+func ConfigDir() (string, error) {
+	ConfigDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+
+	confDir := filepath.Join(ConfigDir, confDirName)
+
+	if _, err := os.Stat(confDir); err != nil {
+		os.Mkdir(confDir, 0755)
+	}
+
+	return confDir, nil
 }
 
 // TruncateText shortens the given text to fit within maxWidth.
