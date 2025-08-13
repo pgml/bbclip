@@ -4,8 +4,7 @@ A simple clipboard history manager that I made because i missed klipper after I
 moved from Plasma.
 I'm also too lazy to hook something into a launcher, I wanted something that just works after installing.
 
-<img width="960" height="540" alt="Screenshot from 2025-08-12 23-04-54" src="https://github.com/user-attachments/assets/aed3650f-c1b0-49fe-989a-b7ee80121a0a" />
-
+[bbclip-demo.webm](https://github.com/user-attachments/assets/e032fcac-f22a-4a0e-8bd5-056913e6f7bb)
 
 ## Features
 
@@ -13,12 +12,7 @@ Not many
 
  * Persistent clipboard
  * Filter/search in clipboard content
- * basic vim bindings
-
-<img width="408" height="616" alt="Screenshot from 2025-08-12 18-10-36" src="https://github.com/user-attachments/assets/0276891b-e07b-44e6-9221-b68765fe0544" />
-<img width="408" height="616" alt="Screenshot from 2025-08-12 18-11-21" src="https://github.com/user-attachments/assets/b0a44997-0949-4ffc-a16f-7e358cbf3e29" />
-
-   
+ * Basic vim bindings so you don't have to touch your mouse ever again
 
 ## Keybinds
 
