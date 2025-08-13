@@ -1,6 +1,6 @@
 # bbclip
 
-A simple clipboard history manager that I made because i missed klipper after I 
+A simple clipboard history manager that I made because i missed klipper after I
 moved from Plasma.
 I'm also too lazy to hook something into a launcher, I wanted something that just works after installing.
 
@@ -16,7 +16,7 @@ Not many
 
 ## Keybinds
 
-- `j`, `↓`, `tab` - move a line down 
+- `j`, `↓`, `tab` - move a line down
 - `k`, `↑`, `shift+tab` - move a line up
 - `ctrl+u` - move 5 lines up
 - `ctrl+d` - move 5 lines down
@@ -45,15 +45,21 @@ Currently the following arguments are available:
 ---
 
 
-
-
-## Dependencies
+## Requirements
 
  * wl-clipboard
+ * libgtk-3-0
+ * libglib2.0-0
+
+## Build dependencies
+
+ * Go >= 1.20
+ * build-essential
  * libgtk-3-dev
  * libglib2.0-dev
  * libgtk-layer-shell-dev
  * gcc
+ * pkg-config
 
 ## Plans
 

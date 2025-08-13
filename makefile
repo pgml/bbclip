@@ -20,7 +20,6 @@ install-local:
 install:
 	rsync -azP ${BIN_CLI} /usr/bin/
 	go clean
-	rm ${BIN_CLI}
 
 clean:
 	go clean
