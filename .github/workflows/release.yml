@@ -82,11 +82,20 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: stable
-          
-      - name: Install native dependencies (GTK + GCC)
+
+      - name: Install native dependencies (GTK + GCC + libc)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libglib2.0-dev libgtk-layer-shell-dev gcc build-essential libc6-dev
+          sudo apt-get install -y \
+            build-essential \
+            libc6-dev \
+            libgtk-3-dev \
+            libglib2.0-dev \
+            libgtk-layer-shell-dev \
+            gcc \
+            g++ \
+            gcc-multilib \
+            pkg-config
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
@@ -95,11 +104,6 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install GoReleaser
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          version: latest
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CGO_ENABLED: 1
+          CC: gcc
+          CXX: g++
