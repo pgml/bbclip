@@ -94,8 +94,9 @@ func main() {
 
 	bbclip.buildUi()
 	bbclip.listenSocket()
-	if !*flagSilent {
+	if !bbclip.conf.BoolVal(Silent, *flagSilent) {
 		bbclip.window.ShowAll()
+		bbclip.window.Move(20, 20)
 	}
 
 	gtk.Main()
@@ -104,13 +105,7 @@ func main() {
 // buildUi builds the main ui, applies css style and populates the
 // clipboard history.
 func (b *BBClip) buildUi() {
-	maxEntries := b.conf.maxEntries
-
-	if IsFlagPassed("max-entries") {
-		maxEntries = *flagMaxEntries
-	}
-
-	b.history = NewHistory(maxEntries)
+	b.history = NewHistory(b.conf.IntVal(MaxEntries, *flagMaxEntries))
 	b.history.Init()
 
 	var err error
@@ -120,18 +115,7 @@ func (b *BBClip) buildUi() {
 		log.Fatal("Unable to create window:", err)
 	}
 
-	layerShell := true
-
-	if !b.conf.layerShell {
-		layerShell = false
-	}
-
-	// overwrite if cli flag is found
-	if IsFlagPassed("layer-shell") {
-		layerShell = *flagLayerShell
-	}
-
-	if layerShell {
+	if b.conf.BoolVal(LayerShell, *flagLayerShell) {
 		// @todo make config option: `use-layer-shell = true`
 		layershell.InitForWindow(b.window)
 		layershell.SetNamespace(b.window, "gtk-layer-shell")
@@ -561,12 +545,7 @@ func (b *BBClip) applyStyles() {
 		fmt.Println(err)
 	}
 
-	addAppTheme := true
-	if *flagSystemTheme || b.conf.systemTheme {
-		addAppTheme = false
-	}
-
-	if addAppTheme {
+	if !b.conf.BoolVal(SystemTheme, *flagSystemTheme) {
 		b.addContextClass(&b.window.Widget, "bbclip")
 	}
 

@@ -8,37 +8,37 @@ import (
 	"strings"
 )
 
-//var conf = struct {
-//	SystemTheme, MaxEntries, LayerShell string
-//}{
-//	SystemTheme: "system-theme",
-//	MaxEntries:  "max-entries",
-//	LayerShell:  "layer-shell",
-//}
-
-type ConfOption int
+type ConfigOption int
 
 const (
-	SystemTheme ConfOption = iota
+	SystemTheme ConfigOption = iota
 	MaxEntries
 	LayerShell
+	Silent
 )
 
-var options = map[ConfOption]string{
-	SystemTheme: "system-theme",
-	MaxEntries:  "max-entries",
-	LayerShell:  "layer-shell",
+type Option struct {
+	key string
+	arg any
 }
 
-func (o ConfOption) String() string {
-	return options[o]
+var options = map[ConfigOption]Option{
+	SystemTheme: {"system-theme", flagSystemTheme},
+	MaxEntries:  {"max-entries", *flagMaxEntries},
+	LayerShell:  {"layer-shell", *flagLayerShell},
+	Silent:      {"silent", *flagSilent},
+}
+
+func (o ConfigOption) String() string {
+	return options[o].key
+}
+func (o ConfigOption) Arg() any {
+	return options[o].arg
 }
 
 type Config struct {
-	file        string
-	maxEntries  int
-	systemTheme bool
-	layerShell  bool
+	file   string
+	values map[string]string
 }
 
 func NewConfig() *Config {
@@ -46,10 +46,8 @@ func NewConfig() *Config {
 	configFile := confDir + "/" + userConfFile
 
 	conf := Config{
-		file:        configFile,
-		maxEntries:  100,
-		layerShell:  true,
-		systemTheme: false,
+		file:   configFile,
+		values: make(map[string]string, 0),
 	}
 	conf.read()
 
@@ -79,20 +77,31 @@ func (c *Config) read() error {
 		key := strings.TrimSpace(ln[0])
 		val := strings.TrimSpace(ln[1])
 
-		// @todo make this better
-		switch key {
-		case "max-entries":
-			c.maxEntries, _ = strconv.Atoi(val)
-
-		case "layer-shell":
-			c.layerShell = val == "true"
-
-		case "system-theme":
-			c.systemTheme = val == "true"
-		}
+		c.values[key] = val
 	}
 
 	return nil
+}
+
+func (c *Config) BoolVal(opt ConfigOption, defaultVal bool) bool {
+	val, ok := c.values[opt.String()]
+
+	if ok && !IsFlagPassed(options[opt].key) {
+		return val == "true"
+	}
+
+	return defaultVal
+}
+
+func (c *Config) IntVal(opt ConfigOption, defaultVal int) int {
+	val, ok := c.values[opt.String()]
+
+	if ok && !IsFlagPassed(options[opt].key) {
+		v, _ := strconv.Atoi(val)
+		return v
+	}
+
+	return defaultVal
 }
 
 // ConfigDir returns the config directory
