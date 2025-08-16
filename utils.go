@@ -106,11 +106,13 @@ func fileUrl(path string, img *Image) string {
 		return path
 	}
 
-	switch img.source {
-	case ImageSrcBrowser:
-		path = extractPathFromImgTag(path)
-		img.path = path
-		path = urlToCachePath(path)
+	if img != nil {
+		switch img.source {
+		case ImageSrcBrowser:
+			path = extractPathFromImgTag(path)
+			img.path = path
+			path = urlToCachePath(path)
+		}
 	}
 
 	url := url.URL{

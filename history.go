@@ -82,6 +82,8 @@ func NewHistory(maxEntries int) *History {
 		history.Save()
 	}
 
+	history.cleanCache()
+
 	return history
 }
 
@@ -289,4 +291,23 @@ func (h *History) contains(content string) (bool, int) {
 	}
 
 	return false, -1
+}
+
+func (h *History) cleanCache() error {
+	cacheDir, _ := CacheDir()
+
+	if dir, err := os.ReadDir(cacheDir); err == nil {
+		for _, d := range dir {
+			path := cacheDir + "/" + d.Name()
+			f := fileUrl(path, nil)
+
+			if ok, _ := h.contains(f); !ok {
+				if err := os.Remove(path); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
 }
