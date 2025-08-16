@@ -49,46 +49,36 @@ func clipboardHasImage() (Image, bool) {
 	return image, false
 }
 
-func downloadImage(imgUrl string, img *Image) error {
-	req, err := http.NewRequest("GET", imgUrl, nil)
-	if err != nil {
-		log.Fatal(err)
-		return err
+func downloadImage(imgUrl string) (string, error) {
+	savePath := urlToCachePath(imgUrl)
+	// return early if the image is already in the cache
+	if _, err := os.Stat(savePath); err == nil {
+		return savePath, nil
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0")
 
-	client := &http.Client{}
-	r, err := client.Do(req)
-
-	r, err = http.Get(imgUrl)
+	r, err := http.Get(imgUrl)
 	if err != nil {
 		log.Fatal(err)
-		return err
+		return "", err
 	}
 	defer r.Body.Close()
 
-	savePath := urlToCachePath(imgUrl)
-
+	// save image to cache directory
 	if _, err := os.Stat(savePath); err != nil {
 		f, err := os.Create(savePath)
 		if err != nil {
 			log.Fatal(err)
-			return err
+			return "", err
 		}
 		defer f.Close()
 
-		n, err := io.Copy(f, r.Body)
-
-		if err != nil {
+		if _, err = io.Copy(f, r.Body); err != nil {
 			log.Fatal(err)
-			return err
+			return "", err
 		}
-
-		img.path = savePath
-		img.size = n
 	}
 
-	return nil
+	return savePath, nil
 }
 
 func extractPathFromImgTag(imgTag string) string {

@@ -116,7 +116,8 @@ func (h *History) Init() {
 
 				if fileUrl != last {
 					if img.source == ImageSrcBrowser {
-						downloadImage(img.path, &img)
+						p, _ := downloadImage(img.path)
+						img.path = p
 					}
 					historyEntry.str = &fileUrl
 					historyEntry.img = &img
