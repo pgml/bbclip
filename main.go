@@ -20,9 +20,7 @@ import (
 
 const (
 	socketPath      = "/tmp/bbclip.sock"
-	confDirName     = "bbclip"
 	userCssFileName = "style.css"
-	userConfFile    = "config"
 )
 
 //go:embed style.css
@@ -39,6 +37,7 @@ var (
 	flagMaxEntries   = flag.Int("max-entries", 100, "Maximum amount of clipboard entries the history should hold")
 	flagLayerShell   = flag.Bool("layer-shell", true, "Use layer shell instead of window")
 	flagSilent       = flag.Bool("silent", false, "Starts bbclip silently in the background")
+	flagImageHeight  = flag.Int("image-height", 64, "Image height")
 )
 
 type BBClip struct {
@@ -62,7 +61,7 @@ type BBClip struct {
 	// entriesList is the history entries list view
 	entriesList *gtk.ListBox
 
-	entryItemsContent map[int]string
+	entryItemsContent map[int]HistoryEntry
 
 	// cssProvider is the gtk css provider
 	cssProvider *gtk.CssProvider
@@ -141,7 +140,7 @@ func (b *BBClip) buildUi() {
 	b.entriesList.SetSelectionMode(gtk.SELECTION_SINGLE)
 	b.entriesList.SetMarginBottom(6)
 	b.entriesList.Connect("row-activated", b.onRowActivated)
-	b.entryItemsContent = make(map[int]string)
+	b.entryItemsContent = make(map[int]HistoryEntry)
 
 	b.entriesListWrapper, _ = gtk.ScrolledWindowNew(nil, nil)
 	b.entriesListWrapper.SetSizeRequest(350, 450)
@@ -276,7 +275,7 @@ func (b *BBClip) searchAndFocus(query string, ignoreCase bool) {
 			},
 		}
 
-		rowContent := b.entryItemsContent[row.GetIndex()]
+		rowContent := *b.entryItemsContent[row.GetIndex()].str
 
 		if ignoreCase {
 			rowContent = strings.ToLower(rowContent)
@@ -309,23 +308,24 @@ func (b *BBClip) selectAndHide(row *gtk.ListBoxRow) {
 		return
 	}
 
-	content := b.entryItemsContent[row.GetIndex()]
+	entry := b.entryItemsContent[row.GetIndex()]
 
-	if content == "" {
+	if *entry.str == "" {
 		b.window.Hide()
 		return
 	}
 
-	if ok, index := b.history.contains(content); ok {
+	if ok, index := b.history.contains(*entry.str); ok {
 		entries := b.history.entries
 		b.history.entries = slices.Delete(entries, index, index+1)
 	}
 
-	if err := b.history.WriteToClipboard(content); err != nil {
+	if err := b.history.WriteToClipboard(entry); err != nil {
 		println("Could not write to clipboard:", err)
 	} else {
 		println(err)
 	}
+
 	b.window.Hide()
 }
 
@@ -496,31 +496,67 @@ func (b *BBClip) refreshEntryList() {
 
 	for i := len(entries) - 1; i >= 0; i-- {
 		// truncate the preview
-		preview := strings.ReplaceAll(entries[i], "\n", " ")
+		preview := strings.ReplaceAll(*entries[i].str, "\n", " ")
 		preview = TruncateText(preview, 42)
 
-		// the real clipboard content
-		content := entries[i]
+		// the real clipboard entry
+		entry := entries[i]
 
-		label, _ := gtk.LabelNew(preview)
-		label.SetMarginTop(6)
-		label.SetMarginBottom(6)
-		label.SetXAlign(0)
+		rowBox, _ := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 0)
+
+		iconName := "text-x-generic-symbolic"
+		if entries[i].img != nil {
+			iconName = "image-x-generic-symbolic"
+			img := b.createEntryImage(
+				entries[i].img.path,
+				b.conf.IntVal(ImageHeight, *flagImageHeight),
+			)
+			rowBox.PackEnd(img, true, true, 8)
+		} else {
+			label, _ := gtk.LabelNew(preview)
+			label.SetMarginTop(6)
+			label.SetMarginBottom(6)
+			label.SetXAlign(0)
+			rowBox.PackEnd(label, true, true, 8)
+		}
+
+		icon, _ := gtk.ImageNewFromIconName(iconName, gtk.ICON_SIZE_BUTTON)
+
+		rowBox.PackStart(icon, false, false, 0)
 
 		row, _ := gtk.ListBoxRowNew()
 		row.SetName(strconv.Itoa(i))
-		row.Add(label)
+		row.Add(rowBox)
 		row.ShowAll()
 
 		b.addContextClass(row.ToWidget(), "entries-list-row")
+		b.addContextClass(icon.ToWidget(), "entries-list-row-icon")
 
 		b.entriesList.Add(row)
-		b.entryItemsContent[row.GetIndex()] = content
+		b.entryItemsContent[row.GetIndex()] = entry
 	}
 
 	b.entriesList.GrabFocus()
 	b.search.SetCanFocus(false)
 	b.search.SetText("")
+}
+
+func (b *BBClip) createEntryImage(imgPath string, height int) *gtk.Image {
+	pixbuf, _ := gdk.PixbufNewFromFile(imgPath)
+
+	w := pixbuf.GetWidth()
+	h := pixbuf.GetHeight()
+
+	scale := float64(height) / float64(h)
+	w = int(float64(w) * scale)
+	h = height
+
+	scaledPixBuf, _ := pixbuf.ScaleSimple(w, h, gdk.INTERP_BILINEAR)
+
+	img, _ := gtk.ImageNewFromPixbuf(scaledPixBuf)
+	img.SetHAlign(gtk.ALIGN_START)
+
+	return img
 }
 
 func (b *BBClip) applyStyles() {
@@ -589,7 +625,7 @@ func (b *BBClip) onKeyPress(_ *gtk.Window, ev *gdk.Event) bool {
 func (b *BBClip) onFocusOut(win *gtk.Window, _ *gdk.Event) {
 	since := time.Since(b.visTime)
 
-	if since > 100*time.Millisecond {
+	if since > 200*time.Millisecond {
 		// @todo config option close-on-blur = false
 		win.Hide()
 		fmt.Println("Window lost focus")

@@ -8,6 +8,11 @@ import (
 	"strings"
 )
 
+const (
+	confDirName  = "bbclip"
+	userConfFile = "config"
+)
+
 type ConfigOption int
 
 const (
@@ -15,6 +20,7 @@ const (
 	MaxEntries
 	LayerShell
 	Silent
+	ImageHeight
 )
 
 type Option struct {
@@ -27,6 +33,7 @@ var options = map[ConfigOption]Option{
 	MaxEntries:  {"max-entries", *flagMaxEntries},
 	LayerShell:  {"layer-shell", *flagLayerShell},
 	Silent:      {"silent", *flagSilent},
+	ImageHeight: {"image-height", *flagImageHeight},
 }
 
 func (o ConfigOption) String() string {
@@ -107,6 +114,22 @@ func (c *Config) IntVal(opt ConfigOption, defaultVal int) int {
 // ConfigDir returns the config directory
 func ConfigDir() (string, error) {
 	ConfigDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+
+	confDir := filepath.Join(ConfigDir, confDirName)
+
+	if _, err := os.Stat(confDir); err != nil {
+		os.Mkdir(confDir, 0755)
+	}
+
+	return confDir, nil
+}
+
+// ConfigDir returns the config directory
+func CacheDir() (string, error) {
+	ConfigDir, err := os.UserCacheDir()
 	if err != nil {
 		return "", err
 	}

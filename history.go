@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"slices"
@@ -16,10 +17,29 @@ import (
 
 const HistoryFile = "org.pgml.bbclip-hist"
 
+type ImageSource int
+
+const (
+	ImageSrcBrowser ImageSource = iota
+	ImageSrcFileSystem
+)
+
+type Image struct {
+	source   ImageSource
+	mimeType string
+	path     string
+	size     int64
+}
+
+type HistoryEntry struct {
+	str *string
+	img *Image
+}
+
 type History struct {
 	mu         sync.RWMutex
 	maxEntries int
-	entries    []string
+	entries    []HistoryEntry
 	path       string
 }
 
@@ -83,17 +103,38 @@ func (h *History) Init() {
 
 			last := ""
 			if len(h.entries) > 0 {
-				last = h.entries[len(h.entries)-1]
+				last = *h.entries[len(h.entries)-1].str
 			}
 
-			if cont != last {
+			shouldRefresh := false
+			historyEntry := HistoryEntry{}
+
+			if img, ok := clipboardHasImage(); ok {
+				fileUrl := fileUrl(string(cont), &img)
+
+				if fileUrl != last {
+					if img.source == ImageSrcBrowser {
+						downloadImage(img.path, &img)
+					}
+					historyEntry.str = &fileUrl
+					historyEntry.img = &img
+					shouldRefresh = true
+				}
+			} else {
+				if cont != last {
+					historyEntry.str = &cont
+					shouldRefresh = true
+				}
+			}
+
+			if shouldRefresh {
 				h.mu.Lock()
 
 				if ok, index := h.contains(cont); ok {
 					h.entries = slices.Delete(h.entries, index, index+1)
 				}
 
-				h.entries = append(h.entries, cont)
+				h.entries = append(h.entries, historyEntry)
 
 				if err := h.Save(); err != nil {
 					println("Could not save to clipboard history:", err)
@@ -105,12 +146,12 @@ func (h *History) Init() {
 	}()
 }
 
-func (h *History) Read() ([]string, error) {
+func (h *History) Read() ([]HistoryEntry, error) {
 	path := xdg.DataHome + "/" + HistoryFile
 	file, err := os.OpenFile(path, os.O_RDONLY, 0644)
 
 	if err != nil {
-		return []string{}, err
+		return []HistoryEntry{}, err
 	}
 	defer file.Close()
 
@@ -118,7 +159,30 @@ func (h *History) Read() ([]string, error) {
 
 	err = json.NewDecoder(file).Decode(&history)
 
-	return history, nil
+	entries := []HistoryEntry{}
+	for _, entry := range history {
+		var img *Image = nil
+		if fileUrl, fErr := url.Parse(entry); fErr == nil {
+			if fileUrl.Scheme == "file" {
+				if f, err := os.Stat(fileUrl.Path); err == nil {
+					img = &Image{
+						source:   ImageSrcFileSystem,
+						mimeType: "image/*",
+						path:     fileUrl.Path,
+						size:     f.Size(),
+					}
+				}
+			}
+		}
+
+		//fmt.Println(entry, img)
+		entries = append(entries, HistoryEntry{
+			str: &entry,
+			img: img,
+		})
+	}
+
+	return entries, nil
 
 }
 
@@ -131,11 +195,27 @@ func (h *History) Save() error {
 	}
 	defer file.Close()
 
-	return json.NewEncoder(file).Encode(h.entries)
+	entries := []string{}
+	for _, entry := range h.entries {
+		if entry.str == nil {
+			continue
+		}
+		entries = append(entries, *entry.str)
+	}
+
+	return json.NewEncoder(file).Encode(entries)
 }
 
-func (h *History) WriteToClipboard(text string) error {
-	cmd := exec.Command("wl-copy", "--type", "text/plain", "--foreground")
+func (h *History) WriteToClipboard(entry HistoryEntry) error {
+	mimeType := "text/plain"
+	cpContent := *entry.str
+
+	if entry.img != nil {
+		mimeType = "text/uri-list"
+		cpContent = *entry.str
+	}
+
+	cmd := exec.Command("wl-copy", "--type", mimeType, "--foreground")
 	stdin, err := cmd.StdinPipe()
 
 	if err != nil {
@@ -148,7 +228,7 @@ func (h *History) WriteToClipboard(text string) error {
 
 	go func() {
 		defer stdin.Close()
-		io.WriteString(stdin, text)
+		io.WriteString(stdin, cpContent)
 	}()
 
 	go func() {
@@ -202,8 +282,10 @@ func (h *History) clear() error {
 }
 
 func (h *History) contains(content string) (bool, int) {
-	if slices.Contains(h.entries, content) {
-		return true, slices.Index(h.entries, content)
+	for i, entry := range h.entries {
+		if *entry.str == content {
+			return true, i
+		}
 	}
 
 	return false, -1

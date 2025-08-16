@@ -10,7 +10,7 @@ build:
 	go build $(GOFLAGS) -ldflags="\
 		-s -w -X '$(PKG).version=$(VERSION)' \
 		-X '$(PKG).commit=$(GIT_HASH)'" \
-		-o ${BIN_CLI} main.go history.go config.go
+		-o ${BIN_CLI}
 
 install-local:
 	rsync -azP ${BIN_CLI} ~/.local/bin/

@@ -9,4 +9,4 @@ require (
 	github.com/dlasky/gotk3-layershell v0.0.0-20240515133811-5c5115f0d774
 )
 
-require golang.org/x/sys v0.26.0 // indirect
+require golang.org/x/sys v0.35.0 // indirect

@@ -25,6 +25,12 @@ scrolledwindow undershoot.left { background-image: none; }
 	border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
+.entries-list-row-icon {
+}
+
+.entries-list-row-icon:selected {
+}
+
 
 /* --- bbclip theme */
 
