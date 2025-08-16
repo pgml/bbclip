@@ -20,6 +20,7 @@ const (
 	MaxEntries
 	LayerShell
 	Silent
+	Icons
 	ImageHeight
 )
 
@@ -33,6 +34,7 @@ var options = map[ConfigOption]Option{
 	MaxEntries:  {"max-entries", *flagMaxEntries},
 	LayerShell:  {"layer-shell", *flagLayerShell},
 	Silent:      {"silent", *flagSilent},
+	Icons:       {"icons", *flagIcons},
 	ImageHeight: {"image-height", *flagImageHeight},
 }
 

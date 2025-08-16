@@ -37,6 +37,7 @@ var (
 	flagMaxEntries   = flag.Int("max-entries", 100, "Maximum amount of clipboard entries the history should hold")
 	flagLayerShell   = flag.Bool("layer-shell", true, "Use layer shell instead of window")
 	flagSilent       = flag.Bool("silent", false, "Starts bbclip silently in the background")
+	flagIcons        = flag.Bool("icons", true, "")
 	flagImageHeight  = flag.Int("image-height", 64, "Image height")
 )
 
@@ -520,9 +521,11 @@ func (b *BBClip) refreshEntryList() {
 			rowBox.PackEnd(label, true, true, 8)
 		}
 
-		icon, _ := gtk.ImageNewFromIconName(iconName, gtk.ICON_SIZE_BUTTON)
-
-		rowBox.PackStart(icon, false, false, 0)
+		if b.conf.BoolVal(Icons, *flagIcons) {
+			icon, _ := gtk.ImageNewFromIconName(iconName, gtk.ICON_SIZE_BUTTON)
+			rowBox.PackStart(icon, false, false, 0)
+			b.addContextClass(icon.ToWidget(), "entries-list-row-icon")
+		}
 
 		row, _ := gtk.ListBoxRowNew()
 		row.SetName(strconv.Itoa(i))
@@ -530,7 +533,6 @@ func (b *BBClip) refreshEntryList() {
 		row.ShowAll()
 
 		b.addContextClass(row.ToWidget(), "entries-list-row")
-		b.addContextClass(icon.ToWidget(), "entries-list-row-icon")
 
 		b.entriesList.Add(row)
 		b.entryItemsContent[row.GetIndex()] = entry
