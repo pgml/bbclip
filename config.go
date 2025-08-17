@@ -92,7 +92,9 @@ func (c *Config) read() error {
 		key := strings.TrimSpace(ln[0])
 		val := strings.TrimSpace(ln[1])
 
-		c.values[key] = val
+		if !strings.HasPrefix(key, "#") {
+			c.values[key] = val
+		}
 	}
 
 	return nil
