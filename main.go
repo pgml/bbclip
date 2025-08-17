@@ -38,7 +38,7 @@ var (
 	flagMaxEntries        = flag.Int("max-entries", 100, "Maximum amount of clipboard entries the history should hold")
 	flagLayerShell        = flag.Bool("layer-shell", true, "Use layer shell instead of window")
 	flagSilent            = flag.Bool("silent", false, "Starts bbclip silently in the background")
-	flagIcons             = flag.Bool("icons", true, "")
+	flagIcons             = flag.Bool("icons", false, "")
 	flagTextPreviewLength = flag.Int("text-preview-length", 100, "The length of the preview text before it's truncated")
 	flagImageSupport      = flag.Bool("image-support", false, "Whether to enable image support")
 	flagImageHeight       = flag.Int("image-height", 50, "Image height")
