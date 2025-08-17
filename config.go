@@ -33,14 +33,15 @@ type Option struct {
 }
 
 var options = map[ConfigOption]Option{
-	SystemTheme:  {"system-theme", flagSystemTheme},
-	MaxEntries:   {"max-entries", *flagMaxEntries},
-	LayerShell:   {"layer-shell", *flagLayerShell},
-	Silent:       {"silent", *flagSilent},
-	Icons:        {"icons", *flagIcons},
-	ImageSupport: {"image-support", *flagImageSupport},
-	ImageHeight:  {"image-height", *flagImageHeight},
-	ImagePreview: {"image-preview", *flagImagePreview},
+	SystemTheme:    {"system-theme", flagSystemTheme},
+	MaxEntries:     {"max-entries", *flagMaxEntries},
+	LayerShell:     {"layer-shell", *flagLayerShell},
+	Silent:         {"silent", *flagSilent},
+	Icons:          {"icons", *flagIcons},
+	TextPreviewLen: {"text-preview-length", *flagTextPreviewLength},
+	ImageSupport:   {"image-support", *flagImageSupport},
+	ImageHeight:    {"image-height", *flagImageHeight},
+	ImagePreview:   {"image-preview", *flagImagePreview},
 }
 
 func (o ConfigOption) String() string {

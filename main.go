@@ -32,16 +32,17 @@ var (
 	dev     string
 	commit  string
 
-	flagShowVersion  = flag.Bool("version", false, "Shows the version")
-	flagClearHistory = flag.Bool("clear-history", false, "Clears the history")
-	flagSystemTheme  = flag.Bool("system-theme", false, "Uses the system gtk theme")
-	flagMaxEntries   = flag.Int("max-entries", 100, "Maximum amount of clipboard entries the history should hold")
-	flagLayerShell   = flag.Bool("layer-shell", true, "Use layer shell instead of window")
-	flagSilent       = flag.Bool("silent", false, "Starts bbclip silently in the background")
-	flagIcons        = flag.Bool("icons", true, "")
-	flagImageSupport = flag.Bool("image-support", false, "")
-	flagImageHeight  = flag.Int("image-height", 50, "Image height")
-	flagImagePreview = flag.Bool("image-preview", true, "")
+	flagShowVersion       = flag.Bool("version", false, "Shows the version")
+	flagClearHistory      = flag.Bool("clear-history", false, "Clears the history")
+	flagSystemTheme       = flag.Bool("system-theme", false, "Uses the system gtk theme")
+	flagMaxEntries        = flag.Int("max-entries", 100, "Maximum amount of clipboard entries the history should hold")
+	flagLayerShell        = flag.Bool("layer-shell", true, "Use layer shell instead of window")
+	flagSilent            = flag.Bool("silent", false, "Starts bbclip silently in the background")
+	flagIcons             = flag.Bool("icons", true, "")
+	flagTextPreviewLength = flag.Int("text-preview-length", 100, "The length of the preview text before it's truncated")
+	flagImageSupport      = flag.Bool("image-support", false, "Whether to enable image support")
+	flagImageHeight       = flag.Int("image-height", 50, "Image height")
+	flagImagePreview      = flag.Bool("image-preview", true, "Whether to show a tiny preview of the image")
 )
 
 type BBClip struct {
@@ -498,9 +499,10 @@ func (b *BBClip) refreshEntryList() {
 	entries := b.history.entries
 
 	for i := len(entries) - 1; i >= 0; i-- {
+		preview := strings.ReplaceAll(*entries[i].str, "\n", "↲")
 		// truncate the preview
-		preview := strings.ReplaceAll(*entries[i].str, "\n", " ")
-		preview = TruncateText(preview, 42)
+		textLength := b.conf.IntVal(TextPreviewLen, *flagTextPreviewLength)
+		preview = TruncateText(preview, textLength)
 
 		// the real clipboard entry
 		entry := entries[i]
@@ -534,6 +536,10 @@ func (b *BBClip) refreshEntryList() {
 
 		if b.conf.BoolVal(Icons, *flagIcons) {
 			icon, _ := gtk.ImageNewFromIconName(iconName, gtk.ICON_SIZE_BUTTON)
+			if !isImg {
+				icon.SetVAlign(gtk.ALIGN_START)
+				icon.SetMarginTop(6)
+			}
 			rowBox.PackStart(icon, false, false, 0)
 			b.addContextClass(icon.ToWidget(), "entries-list-row-icon")
 		}
@@ -683,11 +689,12 @@ func tryConnectSocket() bool {
 // TruncateText shortens the given text to fit within maxWidth.
 // If the text exceeds maxWidth, it appends "..." (if possible).
 func TruncateText(text string, maxWidth int) string {
-	if len(text) > maxWidth {
+	runes := []rune(text)
+	if len(runes) > maxWidth {
 		if maxWidth > 3 {
-			return text[:maxWidth-3] + "..."
+			return string(runes[:maxWidth-3]) + "..."
 		}
-		return text[:maxWidth] // No space for "..."
+		return string(runes[:maxWidth]) // No space for "..."
 	}
 	return text
 }
