@@ -41,9 +41,10 @@ type History struct {
 	maxEntries int
 	entries    []HistoryEntry
 	path       string
+	conf       *Config
 }
 
-func NewHistory(maxEntries int) *History {
+func NewHistory(conf *Config) *History {
 	path := xdg.DataHome + "/" + HistoryFile
 
 	if _, err := os.Stat(path); err != nil {
@@ -59,8 +60,9 @@ func NewHistory(maxEntries int) *History {
 	history := &History{
 		mu: sync.RWMutex{},
 		// @todo make config option `max-entries = 100`
-		maxEntries: maxEntries,
+		maxEntries: conf.IntVal(MaxEntries, *flagMaxEntries),
 		path:       path,
+		conf:       conf,
 	}
 
 	if *flagClearHistory {
@@ -110,8 +112,9 @@ func (h *History) Init() {
 
 			shouldRefresh := false
 			historyEntry := HistoryEntry{}
+			imageSupport := h.conf.BoolVal(ImageSupport, *flagImageSupport)
 
-			if img, ok := clipboardHasImage(); ok {
+			if img, ok := clipboardHasImage(); ok && imageSupport {
 				fileUrl := fileUrl(string(cont), &img)
 
 				if fileUrl != last {

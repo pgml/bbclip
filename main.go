@@ -38,6 +38,7 @@ var (
 	flagLayerShell   = flag.Bool("layer-shell", true, "Use layer shell instead of window")
 	flagSilent       = flag.Bool("silent", false, "Starts bbclip silently in the background")
 	flagIcons        = flag.Bool("icons", true, "")
+	flagImageSupport = flag.Bool("image-support", false, "")
 	flagImageHeight  = flag.Int("image-height", 50, "Image height")
 	flagImagePreview = flag.Bool("image-preview", true, "")
 )
@@ -107,7 +108,7 @@ func main() {
 // buildUi builds the main ui, applies css style and populates the
 // clipboard history.
 func (b *BBClip) buildUi() {
-	b.history = NewHistory(b.conf.IntVal(MaxEntries, *flagMaxEntries))
+	b.history = NewHistory(b.conf)
 	b.history.Init()
 
 	var err error
@@ -511,7 +512,8 @@ func (b *BBClip) refreshEntryList() {
 			iconName = "image-x-generic-symbolic"
 		}
 
-		if isImg && b.conf.BoolVal(ImagePreview, *flagImagePreview) {
+		imageSupport := b.conf.BoolVal(ImageSupport, *flagImageSupport)
+		if imageSupport && isImg && b.conf.BoolVal(ImagePreview, *flagImagePreview) {
 			img, err := b.createEntryImage(
 				entry.img.path,
 				b.conf.IntVal(ImageHeight, *flagImageHeight),

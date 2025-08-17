@@ -21,6 +21,7 @@ const (
 	LayerShell
 	Silent
 	Icons
+	ImageSupport
 	ImageHeight
 	ImagePreview
 )
@@ -36,6 +37,7 @@ var options = map[ConfigOption]Option{
 	LayerShell:   {"layer-shell", *flagLayerShell},
 	Silent:       {"silent", *flagSilent},
 	Icons:        {"icons", *flagIcons},
+	ImageSupport: {"image-support", *flagImageSupport},
 	ImageHeight:  {"image-height", *flagImageHeight},
 	ImagePreview: {"image-preview", *flagImagePreview},
 }
