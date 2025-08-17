@@ -16,6 +16,7 @@ import (
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
+	"github.com/gotk3/gotk3/pango"
 )
 
 const (
@@ -523,6 +524,8 @@ func (b *BBClip) refreshEntryList() {
 			}
 		} else {
 			label, _ := gtk.LabelNew(preview)
+			label.SetLineWrap(true)
+			label.SetLineWrapMode(pango.WRAP_WORD_CHAR)
 			label.SetMarginTop(6)
 			label.SetMarginBottom(6)
 			label.SetXAlign(0)

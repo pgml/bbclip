@@ -21,6 +21,7 @@ const (
 	LayerShell
 	Silent
 	Icons
+	TextPreviewLen
 	ImageSupport
 	ImageHeight
 	ImagePreview
