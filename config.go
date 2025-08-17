@@ -22,6 +22,7 @@ const (
 	Silent
 	Icons
 	ImageHeight
+	ImagePreview
 )
 
 type Option struct {
@@ -30,12 +31,13 @@ type Option struct {
 }
 
 var options = map[ConfigOption]Option{
-	SystemTheme: {"system-theme", flagSystemTheme},
-	MaxEntries:  {"max-entries", *flagMaxEntries},
-	LayerShell:  {"layer-shell", *flagLayerShell},
-	Silent:      {"silent", *flagSilent},
-	Icons:       {"icons", *flagIcons},
-	ImageHeight: {"image-height", *flagImageHeight},
+	SystemTheme:  {"system-theme", flagSystemTheme},
+	MaxEntries:   {"max-entries", *flagMaxEntries},
+	LayerShell:   {"layer-shell", *flagLayerShell},
+	Silent:       {"silent", *flagSilent},
+	Icons:        {"icons", *flagIcons},
+	ImageHeight:  {"image-height", *flagImageHeight},
+	ImagePreview: {"image-preview", *flagImagePreview},
 }
 
 func (o ConfigOption) String() string {

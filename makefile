@@ -5,7 +5,7 @@ PKG = main
 GOFLAGS = -trimpath
 VERSION := $(shell git describe --tags --abbrev=0 || echo "dev")
 
-build:
+all:
 	go mod tidy
 	go build $(GOFLAGS) -ldflags="\
 		-s -w -X '$(PKG).version=$(VERSION)' \

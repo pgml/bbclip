@@ -163,9 +163,9 @@ func (h *History) Read() ([]HistoryEntry, error) {
 	err = json.NewDecoder(file).Decode(&history)
 
 	entries := []HistoryEntry{}
-	for _, entry := range history {
+	for _, content := range history {
 		var img *Image = nil
-		if fileUrl, fErr := url.Parse(entry); fErr == nil {
+		if fileUrl, fErr := url.Parse(content); fErr == nil {
 			if fileUrl.Scheme == "file" {
 				if f, err := os.Stat(fileUrl.Path); err == nil {
 					img = &Image{
@@ -178,9 +178,8 @@ func (h *History) Read() ([]HistoryEntry, error) {
 			}
 		}
 
-		//fmt.Println(entry, img)
 		entries = append(entries, HistoryEntry{
-			str: &entry,
+			str: &content,
 			img: img,
 		})
 	}
