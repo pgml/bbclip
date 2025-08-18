@@ -14,6 +14,8 @@ Not many
  * Filter/search in clipboard content
  * Basic vim bindings so you don't have to touch your mouse ever again
  * Custom [Styling](#Styling) with GTK+ CSS
+ * Image support (experimental, can be enabled through config `image-support = true`)
+   - Currently copying images is only possible between file managers until i figure out how to elegantly implement multiple mime types to wl-clipboard
 
 ## Keybinds
 
@@ -37,6 +39,11 @@ Currently the following arguments are available:
 --max-entries=100               Maximum amount of clipboard entries the history should hold (default: 100)
 --layer-shell=true|false        Whether to use the gtk-layer-shell instead of a normal window (default: true)
 --silent=true|false             Starts bbclip silently in the background (default: false)
+--icons=true|false              Whether to display row icons (default: false)
+--text-preview-length=100       The Length of the text preview before it's truncated
+--image-support=true|false      Whether copying should be possible (default: false)
+--image-preview=true|false      Whether to show a preview of the copied image (default: true)
+--image-height=50               The height of the preview image if image-support is enabled (default: 50)
 ```
 
 You can write the same flags (without the double dashes) in `~/.config/bbclip/config` to make it persistent.
