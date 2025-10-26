@@ -24,6 +24,8 @@ Not many
 - `ctrl+u` - move 5 lines up
 - `ctrl+d` - move 5 lines down
 - `i`, `/` - Focus search bar
+- `g` - go to top
+- `G` - go to bottom
 - `delete` - delete selected item from history
 - `esc` - close window or focus history list if searchbar is focused
 - `ctrl+c` - close application (this would also stop monitoring the clipboard)

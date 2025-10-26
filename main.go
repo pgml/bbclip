@@ -248,6 +248,12 @@ func (b *BBClip) handleKeyEvents(key *gdk.EventKey) bool {
 	case "j", "Down":
 		b.rowDown()
 
+	case "g":
+		b.goToTop()
+
+	case "G":
+		b.goToBottom()
+
 	case "i", "slash":
 		if !b.search.HasFocus() {
 			b.search.SetCanFocus(true)
@@ -461,12 +467,12 @@ func (b *BBClip) goToTop() {
 	}
 }
 
-//func (b *BBClip) goToBottom() {
-//	rowCount := int(b.entriesList.GetChildren().Length())
-//	index := b.entriesList.GetRowAtIndex(rowCount)
-//	b.entriesList.SelectRow(index)
-//	b.repositionView()
-//}
+func (b *BBClip) goToBottom() {
+	rowCount := int(b.entriesList.GetChildren().Length())
+	index := b.entriesList.GetRowAtIndex(rowCount - 1)
+	b.entriesList.SelectRow(index)
+	b.repositionView()
+}
 
 // repositionView adjusts the view to the selected row
 func (b *BBClip) repositionView() {
