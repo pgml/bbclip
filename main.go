@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/url"
 	"os"
 	"slices"
 	"strconv"
@@ -532,8 +533,21 @@ func (b *BBClip) refreshEntryList(from int, to int) {
 
 		imageSupport := b.conf.BoolVal(ImageSupport, *flagImageSupport)
 		if imageSupport && isImg && b.conf.BoolVal(ImagePreview, *flagImagePreview) {
+			// get local filepath
+			parsedUrl, err := url.Parse(*entry.str)
+			if err != nil {
+				continue
+			}
+
+			imgPath := parsedUrl.Path
+
+			// if there's an Image object that get that path
+			if entry.img.path != "" {
+				imgPath = entry.img.path
+			}
+
 			img, err := b.createEntryImage(
-				entry.img.path,
+				imgPath,
 				b.conf.IntVal(ImageHeight, *flagImageHeight),
 			)
 			if err == nil {

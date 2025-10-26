@@ -58,8 +58,7 @@ func NewHistory(conf *Config) *History {
 	}
 
 	history := &History{
-		mu: sync.RWMutex{},
-		// @todo make config option `max-entries = 100`
+		mu:         sync.RWMutex{},
 		maxEntries: conf.IntVal(MaxEntries, *flagMaxEntries),
 		path:       path,
 		conf:       conf,
