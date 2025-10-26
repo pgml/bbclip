@@ -3,11 +3,12 @@ DATE = $(shell date +%Y%m%d%H)
 GIT_HASH = g$(shell git rev-parse --short HEAD || echo "local")
 PKG = main
 GOFLAGS = -trimpath
+CGO_FLAGS = -Wno-deprecated-declarations
 VERSION := $(shell git describe --tags --abbrev=0 || echo "dev")
 
 all:
 	go mod tidy
-	go build $(GOFLAGS) -ldflags="\
+	CGO_CFLAGS=$(CGO_FLAGS) go build $(GOFLAGS) -ldflags="\
 		-s -w -X '$(PKG).version=$(VERSION)' \
 		-X '$(PKG).commit=$(GIT_HASH)'" \
 		-o ${BIN_CLI}
