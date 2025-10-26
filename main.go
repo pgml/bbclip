@@ -547,6 +547,7 @@ func (b *BBClip) refreshEntryList(from int, to int) {
 			label.SetMarginBottom(6)
 			label.SetXAlign(0)
 			rowBox.PackEnd(label, true, true, 8)
+			b.addContextClass(label.ToWidget(), "entries-list-row-label")
 		}
 
 		if b.conf.BoolVal(Icons, *flagIcons) {

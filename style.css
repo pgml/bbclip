@@ -69,3 +69,6 @@ scrolledwindow undershoot.left { background-image: none; }
 	/* border: 1px solid #356ba0;*/
 	/*padding:0 12px;*/
 }
+.bbclip .entries-list-row:selected .entries-list-row-label {
+	color: #eee;
+}
