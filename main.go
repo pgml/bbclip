@@ -104,7 +104,7 @@ func main() {
 	if !bbclip.conf.BoolVal(Silent, *flagSilent) {
 		bbclip.window.ShowAll()
 		if bbclip.window.IsVisible() {
-			bbclip.refreshEntryList(initialItems+1, bbclip.history.maxEntries)
+			bbclip.refreshEntryList()
 			bbclip.window.Move(20, 20)
 			bbclip.goToTop()
 		}
@@ -159,7 +159,7 @@ func (b *BBClip) buildUi() {
 	b.entriesListWrapper.SetOverlayScrolling(true)
 	b.entriesListWrapper.Add(b.entriesList)
 
-	b.refreshEntryList(0, initialItems)
+	//b.refreshEntryList(0, initialItems)
 
 	b.window.SetTitle("bellbird clipboard")
 	b.window.SetDecorated(false)
@@ -202,9 +202,10 @@ func (b *BBClip) listenSocket() {
 
 			if string(buf[:n]) == "SHOW\n" {
 				glib.IdleAddPriority(glib.PRIORITY_HIGH_IDLE, func() {
-					b.refreshEntryList(0, initialItems)
 					b.window.ShowAll()
-					b.refreshEntryList(initialItems+1, b.history.maxEntries)
+					if b.window.IsVisible() {
+						b.refreshEntryList()
+					}
 					b.window.Present()
 					b.window.Deiconify()
 					b.goToTop()
@@ -360,7 +361,7 @@ func (b *BBClip) deleteSelectedRow() {
 	entryIndex, _ := strconv.Atoi(rowName)
 
 	if index, _ := b.history.removeEntry(entryIndex); index > -1 {
-		b.refreshEntryList(0, b.history.maxEntries)
+		b.refreshEntryList()
 
 		// move the selection to the same spot the deletion took place
 		rowIndex = Clamp(rowIndex, 0, len(b.history.entries)-1)
@@ -494,7 +495,7 @@ func (b *BBClip) repositionView() {
 // refreshEntryList fetches the latest clipboard entries from the history,
 // rebuilds the clipboard history list and automatically sets focus
 // to the history list
-func (b *BBClip) refreshEntryList(from int, to int) {
+func (b *BBClip) refreshEntryList() {
 	b.history.mu.RLock()
 	defer b.history.mu.RUnlock()
 
@@ -502,25 +503,16 @@ func (b *BBClip) refreshEntryList(from int, to int) {
 		return
 	}
 
-	// if from is greater than zero we're most likely want to append
-	// to the existing list rather than rebuilding
-	if from == 0 {
-		children := b.entriesList.GetChildren()
-		for e := children; e != nil; e = e.Next() {
-			child := e.Data().(*gtk.Widget)
-			b.entriesList.Remove(child)
-			child.Destroy()
-		}
+	children := b.entriesList.GetChildren()
+	for e := children; e != nil; e = e.Next() {
+		child := e.Data().(*gtk.Widget)
+		b.entriesList.Remove(child)
+		child.Destroy()
 	}
 
 	entries := b.history.entries
-	from = b.history.maxEntries - from - 1
-	to = b.history.maxEntries - to - 1
 
 	for i := len(entries) - 1; i >= 0; i-- {
-		if i > from || i < to {
-			continue
-		}
 		preview := strings.ReplaceAll(*entries[i].str, "\n", "↲")
 		// truncate the preview
 		textLength := b.conf.IntVal(TextPreviewLen, *flagTextPreviewLength)
