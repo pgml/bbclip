@@ -106,6 +106,7 @@ func main() {
 
 		glib.IdleAdd(func() {
 			if bbclip.window.IsVisible() {
+				bbclip.goToTop()
 				bbclip.refreshEntryList(
 					initialItems+1,
 					bbclip.history.maxEntries,
@@ -208,6 +209,7 @@ func (b *BBClip) listenSocket() {
 				glib.IdleAddPriority(glib.PRIORITY_HIGH_IDLE, func() {
 					b.refreshEntryList(0, initialItems)
 					b.window.ShowAll()
+					b.goToTop()
 					glib.IdleAdd(func() {
 						if b.window.IsVisible() {
 							b.refreshEntryList(
