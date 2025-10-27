@@ -103,11 +103,15 @@ func main() {
 
 	if !bbclip.conf.BoolVal(Silent, *flagSilent) {
 		bbclip.window.ShowAll()
-		if bbclip.window.IsVisible() {
-			bbclip.refreshEntryList()
-			bbclip.window.Move(20, 20)
-			bbclip.goToTop()
-		}
+
+		glib.IdleAdd(func() {
+			if bbclip.window.IsVisible() {
+				bbclip.refreshEntryList(
+					initialItems+1,
+					bbclip.history.maxEntries,
+				)
+			}
+		})
 	}
 
 	gtk.Main()
@@ -159,7 +163,7 @@ func (b *BBClip) buildUi() {
 	b.entriesListWrapper.SetOverlayScrolling(true)
 	b.entriesListWrapper.Add(b.entriesList)
 
-	//b.refreshEntryList(0, initialItems)
+	b.refreshEntryList(0, initialItems)
 
 	b.window.SetTitle("bellbird clipboard")
 	b.window.SetDecorated(false)
@@ -202,13 +206,16 @@ func (b *BBClip) listenSocket() {
 
 			if string(buf[:n]) == "SHOW\n" {
 				glib.IdleAddPriority(glib.PRIORITY_HIGH_IDLE, func() {
+					b.refreshEntryList(0, initialItems)
 					b.window.ShowAll()
-					if b.window.IsVisible() {
-						b.refreshEntryList()
-					}
-					b.window.Present()
-					b.window.Deiconify()
-					b.goToTop()
+					glib.IdleAdd(func() {
+						if b.window.IsVisible() {
+							b.refreshEntryList(
+								initialItems+1,
+								b.history.maxEntries,
+							)
+						}
+					})
 					b.visTime = time.Now()
 				})
 			}
@@ -361,7 +368,7 @@ func (b *BBClip) deleteSelectedRow() {
 	entryIndex, _ := strconv.Atoi(rowName)
 
 	if index, _ := b.history.removeEntry(entryIndex); index > -1 {
-		b.refreshEntryList()
+		b.refreshEntryList(0, b.history.maxEntries)
 
 		// move the selection to the same spot the deletion took place
 		rowIndex = Clamp(rowIndex, 0, len(b.history.entries)-1)
@@ -495,7 +502,7 @@ func (b *BBClip) repositionView() {
 // refreshEntryList fetches the latest clipboard entries from the history,
 // rebuilds the clipboard history list and automatically sets focus
 // to the history list
-func (b *BBClip) refreshEntryList() {
+func (b *BBClip) refreshEntryList(from int, to int) {
 	b.history.mu.RLock()
 	defer b.history.mu.RUnlock()
 
@@ -503,16 +510,25 @@ func (b *BBClip) refreshEntryList() {
 		return
 	}
 
-	children := b.entriesList.GetChildren()
-	for e := children; e != nil; e = e.Next() {
-		child := e.Data().(*gtk.Widget)
-		b.entriesList.Remove(child)
-		child.Destroy()
+	// if from is greater than zero we're most likely want to append
+	// to the existing list rather than rebuilding
+	if from == 0 {
+		children := b.entriesList.GetChildren()
+		for e := children; e != nil; e = e.Next() {
+			child := e.Data().(*gtk.Widget)
+			b.entriesList.Remove(child)
+			child.Destroy()
+		}
 	}
 
 	entries := b.history.entries
 
+	c := from
 	for i := len(entries) - 1; i >= 0; i-- {
+		if c < from || c >= to {
+			continue
+		}
+
 		preview := strings.ReplaceAll(*entries[i].str, "\n", "↲")
 		// truncate the preview
 		textLength := b.conf.IntVal(TextPreviewLen, *flagTextPreviewLength)
@@ -581,6 +597,8 @@ func (b *BBClip) refreshEntryList() {
 
 		b.entriesList.Add(row)
 		b.entryItemsContent[row.GetIndex()] = entry
+
+		c++
 	}
 
 	b.entriesList.GrabFocus()

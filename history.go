@@ -187,7 +187,6 @@ func (h *History) Read() ([]HistoryEntry, error) {
 	}
 
 	return entries, nil
-
 }
 
 func (h *History) Save() error {
