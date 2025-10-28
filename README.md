@@ -12,6 +12,7 @@ Not many
 
  * Persistent clipboard
  * Filter/search in clipboard content
+ * Preview window
  * Basic vim bindings so you don't have to touch your mouse ever again
  * Custom [Styling](#Styling) with GTK+ CSS
  * Image support (experimental, can be enabled through config `image-support = true`)
