@@ -103,6 +103,7 @@ func main() {
 
 	if !bbclip.conf.BoolVal(Silent, *flagSilent) {
 		bbclip.window.ShowAll()
+		bbclip.window.Present()
 
 		glib.IdleAdd(func() {
 			if bbclip.window.IsVisible() {
@@ -136,12 +137,12 @@ func (b *BBClip) buildUi() {
 		layershell.InitForWindow(b.window)
 		layershell.SetNamespace(b.window, "gtk-layer-shell")
 		layershell.SetAnchor(b.window, layershell.LAYER_SHELL_EDGE_TOP, false)
-		layershell.SetLayer(b.window, layershell.LAYER_SHELL_LAYER_OVERLAY)
 		layershell.SetMargin(b.window, layershell.LAYER_SHELL_EDGE_TOP, 0)
 		layershell.SetMargin(b.window, layershell.LAYER_SHELL_EDGE_LEFT, 0)
 		layershell.SetMargin(b.window, layershell.LAYER_SHELL_EDGE_RIGHT, 0)
 		layershell.SetExclusiveZone(b.window, 30)
 		layershell.SetKeyboardMode(b.window, layershell.LAYER_SHELL_KEYBOARD_MODE_EXCLUSIVE)
+		layershell.SetLayer(b.window, layershell.LAYER_SHELL_LAYER_OVERLAY)
 	}
 
 	b.popupWrapper, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 8)
@@ -209,6 +210,7 @@ func (b *BBClip) listenSocket() {
 				glib.IdleAddPriority(glib.PRIORITY_HIGH_IDLE, func() {
 					b.refreshEntryList(0, initialItems)
 					b.window.ShowAll()
+					b.window.Present()
 					b.goToTop()
 					glib.IdleAdd(func() {
 						if b.window.IsVisible() {
