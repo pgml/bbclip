@@ -74,3 +74,14 @@ scrolledwindow undershoot.left { background-image: none; }
 .bbclip .entries-list-row:selected .entries-list-row-icon {
 	color: #eee;
 }
+
+.bbclip .preview-wrapper {
+	border-radius: 0 8px 8px 0;
+	padding: 12px 15px;
+	border-left: 1px solid #ddd;
+	background-color: #fff;
+}
+
+.bbclip .preview * {
+	background-color: #fff;
+}

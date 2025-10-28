@@ -45,6 +45,7 @@ var (
 	flagImageSupport      = flag.Bool("image-support", false, "Whether to enable image support")
 	flagImageHeight       = flag.Int("image-height", 50, "Image height")
 	flagImagePreview      = flag.Bool("image-preview", true, "Whether to show a tiny preview of the image")
+	flagPreviewWidth      = flag.Int("preview-width", 350, "The width of the preview window")
 )
 
 type BBClip struct {
@@ -53,6 +54,17 @@ type BBClip struct {
 
 	// window is the gtk window
 	window *gtk.Window
+
+	// the windowWrapper which contains the item list and the preview
+	windowWrapper *gtk.Box
+
+	previewWrapper *gtk.ScrolledWindow
+
+	// previewFrame is the preview window
+	previewFrame *gtk.Frame
+
+	preview       *gtk.TextView
+	previewBuffer *gtk.TextBuffer
 
 	// popupWrapper is the window wrapper that contains the search field
 	// and the history entries
@@ -105,6 +117,11 @@ func main() {
 		bbclip.window.ShowAll()
 		bbclip.window.Present()
 
+		// since the preview window is built before the main window is shown
+		// ShowAll would also display the preview window by default.
+		// So we close it initially
+		bbclip.togglePreview()
+
 		glib.IdleAdd(func() {
 			if bbclip.window.IsVisible() {
 				bbclip.goToTop()
@@ -132,28 +149,60 @@ func (b *BBClip) buildUi() {
 		log.Fatal("Unable to create window:", err)
 	}
 
+	b.windowWrapper, _ = gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 8)
+
 	if b.conf.BoolVal(LayerShell, *flagLayerShell) {
-		// @todo make config option: `use-layer-shell = true`
-		layershell.InitForWindow(b.window)
-		layershell.SetNamespace(b.window, "gtk-layer-shell")
-		layershell.SetAnchor(b.window, layershell.LAYER_SHELL_EDGE_TOP, false)
-		layershell.SetMargin(b.window, layershell.LAYER_SHELL_EDGE_TOP, 0)
-		layershell.SetMargin(b.window, layershell.LAYER_SHELL_EDGE_LEFT, 0)
-		layershell.SetMargin(b.window, layershell.LAYER_SHELL_EDGE_RIGHT, 0)
-		layershell.SetExclusiveZone(b.window, 30)
-		layershell.SetKeyboardMode(b.window, layershell.LAYER_SHELL_KEYBOARD_MODE_EXCLUSIVE)
-		layershell.SetLayer(b.window, layershell.LAYER_SHELL_LAYER_OVERLAY)
+		b.buildLayerShell()
 	}
 
-	b.popupWrapper, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 8)
+	b.buildSearchBar()
+	b.buildEntriesList()
+	b.refreshEntryList(0, initialItems)
+	b.buildWindow()
 
+	b.popupWrapper, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 8)
+	b.popupWrapper.PackStart(b.search, true, true, 0)
+	b.popupWrapper.PackStart(b.entriesListWrapper, true, true, 0)
+	b.windowWrapper.PackStart(b.popupWrapper, true, true, 8)
+
+	b.buildPreview()
+	b.applyStyles()
+
+	b.window.Add(b.windowWrapper)
+}
+
+func (b *BBClip) buildWindow() {
+	b.window.SetTitle("bellbird clipboard")
+	b.window.SetDecorated(false)
+	b.window.SetDefaultSize(400, 400)
+	b.window.SetResizable(false)
+	b.window.SetAppPaintable(true)
+	b.window.Connect("key-press-event", b.onKeyPress)
+	b.window.Connect("focus-out-event", b.onFocusOut)
+}
+
+func (b *BBClip) buildLayerShell() {
+	layershell.InitForWindow(b.window)
+	layershell.SetNamespace(b.window, "gtk-layer-shell")
+	layershell.SetAnchor(b.window, layershell.LAYER_SHELL_EDGE_TOP, false)
+	layershell.SetMargin(b.window, layershell.LAYER_SHELL_EDGE_TOP, 0)
+	layershell.SetMargin(b.window, layershell.LAYER_SHELL_EDGE_LEFT, 0)
+	layershell.SetMargin(b.window, layershell.LAYER_SHELL_EDGE_RIGHT, 0)
+	layershell.SetExclusiveZone(b.window, 30)
+	layershell.SetKeyboardMode(b.window, layershell.LAYER_SHELL_KEYBOARD_MODE_EXCLUSIVE)
+	layershell.SetLayer(b.window, layershell.LAYER_SHELL_LAYER_OVERLAY)
+}
+
+func (b *BBClip) buildSearchBar() {
 	b.search, _ = gtk.EntryNew()
 	b.search.SetCanFocus(false)
 	b.search.SetIconFromIconName(gtk.ENTRY_ICON_PRIMARY, "system-search")
 	b.search.SetPlaceholderText("Search...")
 	b.search.Connect("button-press-event", b.onButtonPress)
 	b.search.Connect("key-release-event", b.onKeyRelease)
+}
 
+func (b *BBClip) buildEntriesList() {
 	b.entriesList, _ = gtk.ListBoxNew()
 	b.entriesList.SetSelectionMode(gtk.SELECTION_SINGLE)
 	b.entriesList.SetMarginBottom(6)
@@ -164,22 +213,54 @@ func (b *BBClip) buildUi() {
 	b.entriesListWrapper.SetSizeRequest(350, 450)
 	b.entriesListWrapper.SetOverlayScrolling(true)
 	b.entriesListWrapper.Add(b.entriesList)
+}
 
-	b.refreshEntryList(0, initialItems)
+// buildPreview build the preview window containing a scrollable window,
+// a textview and a text buffer
+func (b *BBClip) buildPreview() {
+	b.previewFrame, _ = gtk.FrameNew("")
+	b.previewFrame.SetShadowType(gtk.SHADOW_NONE)
+	b.previewFrame.SetAppPaintable(true)
 
-	b.window.SetTitle("bellbird clipboard")
-	b.window.SetDecorated(false)
-	b.window.SetDefaultSize(400, 400)
-	b.window.SetResizable(false)
-	b.window.SetAppPaintable(true)
-	b.window.Connect("key-press-event", b.onKeyPress)
-	b.window.Connect("focus-out-event", b.onFocusOut)
+	tagTable, _ := gtk.TextTagTableNew()
+	b.previewBuffer, _ = gtk.TextBufferNew(tagTable)
+	b.preview, _ = gtk.TextViewNewWithBuffer(b.previewBuffer)
+	b.preview.SetEditable(false)
+	b.preview.SetCanFocus(false)
 
-	b.applyStyles()
+	b.preview.SetWrapMode(gtk.WRAP_NONE)
+	b.previewFrame.Add(b.preview)
 
-	b.popupWrapper.PackStart(b.search, true, true, 0)
-	b.popupWrapper.PackStart(b.entriesListWrapper, true, true, 0)
-	b.window.Add(b.popupWrapper)
+	width := b.conf.IntVal(PreviewWidth, *flagPreviewWidth)
+	b.previewWrapper, _ = gtk.ScrolledWindowNew(nil, nil)
+	b.previewWrapper.Add(b.previewFrame)
+	b.previewWrapper.SetSizeRequest(width, 400)
+	b.windowWrapper.PackEnd(b.previewWrapper, false, false, 0)
+}
+
+// togglePreview displays or hides the preview window depending on the
+// current visibility
+func (b *BBClip) togglePreview() {
+	if b.search.HasFocus() {
+		return
+	}
+
+	width := b.conf.IntVal(PreviewWidth, *flagPreviewWidth)
+
+	if b.previewWrapper.IsVisible() {
+		b.previewWrapper.Hide()
+		b.window.Resize(400, 400)
+	} else {
+		b.previewWrapper.ShowAll()
+		b.updatePreviewContent()
+		b.window.Resize(400+width, 400)
+	}
+}
+
+func (b *BBClip) updatePreviewContent() {
+	row := b.entriesList.GetSelectedRow()
+	entry := b.entryItemsContent[row.GetIndex()]
+	b.previewBuffer.SetText(*entry.str)
 }
 
 // listenSocket sets up a Unix domain socket server to listen for incoming commands.
@@ -211,6 +292,7 @@ func (b *BBClip) listenSocket() {
 					b.refreshEntryList(0, initialItems)
 					b.window.ShowAll()
 					b.window.Present()
+					b.togglePreview()
 					b.goToTop()
 					glib.IdleAdd(func() {
 						if b.window.IsVisible() {
@@ -266,6 +348,9 @@ func (b *BBClip) handleKeyEvents(key *gdk.EventKey) bool {
 	case "G":
 		b.goToBottom()
 
+	case "p":
+		b.togglePreview()
+
 	case "i", "slash":
 		if !b.search.HasFocus() {
 			b.search.SetCanFocus(true)
@@ -285,6 +370,10 @@ func (b *BBClip) handleKeyEvents(key *gdk.EventKey) bool {
 		case gdk.KEY_c:
 			gtk.MainQuit()
 		}
+	}
+
+	if b.previewFrame.IsVisible() {
+		b.updatePreviewContent()
 	}
 
 	return false
@@ -660,7 +749,9 @@ func (b *BBClip) applyStyles() {
 	b.addContextClass(&b.search.Widget, "search")
 	b.addContextClass(&b.entriesListWrapper.Widget, "entries-list-wrapper")
 	b.addContextClass(&b.entriesList.Widget, "entries-list")
-	b.addContextClass(&b.popupWrapper.Widget, "popup-wrapper")
+	b.addContextClass(&b.windowWrapper.Widget, "popup-wrapper")
+	b.addContextClass(&b.previewWrapper.Widget, "preview-wrapper")
+	b.addContextClass(&b.preview.Widget, "preview")
 }
 
 func (b *BBClip) injectUserStyles(screen *gdk.Screen) error {
