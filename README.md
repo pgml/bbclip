@@ -26,6 +26,7 @@ Not many
 - `i`, `/` - Focus search bar
 - `g` - go to top
 - `G` - go to bottom
+- `p` - open a preview of the selected history item
 - `delete`, `D` - delete selected item from history
 - `esc` - close window or focus history list if search bar is focused
 - `ctrl+c` - close application (this would also stop monitoring the clipboard)
@@ -46,6 +47,8 @@ Currently the following arguments are available:
 --image-support=true|false      Whether copying should be possible (default: false)
 --image-preview=true|false      Whether to show a preview of the copied image (default: true)
 --image-height=50               The height of the preview image if image-support is enabled (default: 50)
+--preview-width=300             The width of the preview window (default: 300)
+--show-preview=false            Whether to show the preview window when bbclip is spawned (default: false)
 ```
 
 You can write the same flags (without the double dashes) in `~/.config/bbclip/config` to make it persistent.
@@ -59,7 +62,8 @@ Create a `style.css` in `~/.config/bbclip/` and use the following classes:
 - `.search {}` - The search input (GtkEntry)
 - `.entries-list {}` - The history items list (GtkListBox)
 - `.entries-list-row {}` - A history item row (GtkListBoxRow)
-
+- `.preview-wrapper` - The preview window (GtkScrolledWindow)
+- `.preview` - The preview text field (GtkTextView)
 
 ---
 > [!NOTE]
