@@ -246,7 +246,7 @@ func (b *BBClip) handleKeyEvents(key *gdk.EventKey) bool {
 			}
 		}
 
-	case "Delete":
+	case "Delete", "D":
 		b.deleteSelectedRow()
 	case "Return":
 		if b.entriesList != nil && sinceShow > 200*time.Millisecond {

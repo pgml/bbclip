@@ -26,8 +26,8 @@ Not many
 - `i`, `/` - Focus search bar
 - `g` - go to top
 - `G` - go to bottom
-- `delete` - delete selected item from history
-- `esc` - close window or focus history list if searchbar is focused
+- `delete`, `D` - delete selected item from history
+- `esc` - close window or focus history list if search bar is focused
 - `ctrl+c` - close application (this would also stop monitoring the clipboard)
 
 
@@ -65,6 +65,9 @@ Create a `style.css` in `~/.config/bbclip/` and use the following classes:
 > [!NOTE]
 > I recommended to start `bbclip` with your system via `bbclip --silent` otherwise it would just start monitoring your clipboard after you first launched the app.
 > This basically just spawns `bbclip` silently in the background.
+---
+> [!NOTE]
+> bbclip doesn't really work on Plasma 6 due to the weird focus stealing thing with overlays/layer shells (You guys have Klipper anyway) but it should probably work on any wayland compositors like Niri (tested) or Hyprland.
 ---
 
 ## Requirements
