@@ -46,6 +46,7 @@ var (
 	flagImageHeight       = flag.Int("image-height", 50, "Image height")
 	flagImagePreview      = flag.Bool("image-preview", true, "Whether to show a tiny preview of the image")
 	flagPreviewWidth      = flag.Int("preview-width", 350, "The width of the preview window")
+	flagShowPreview       = flag.Bool("show-preview", false, "Whether to show the preview window by default when opening bbclip.")
 )
 
 type BBClip struct {
@@ -117,10 +118,12 @@ func main() {
 		bbclip.window.ShowAll()
 		bbclip.window.Present()
 
-		// since the preview window is built before the main window is shown
-		// ShowAll would also display the preview window by default.
-		// So we close it initially
-		bbclip.togglePreview()
+		if !bbclip.conf.BoolVal(ShowPreview, *flagShowPreview) {
+			// since the preview window is built before the main window is shown
+			// ShowAll would also display the preview window by default.
+			// So we close it initially
+			bbclip.togglePreview()
+		}
 
 		glib.IdleAdd(func() {
 			if bbclip.window.IsVisible() {
@@ -292,7 +295,14 @@ func (b *BBClip) listenSocket() {
 					b.refreshEntryList(0, initialItems)
 					b.window.ShowAll()
 					b.window.Present()
-					b.togglePreview()
+
+					if !b.conf.BoolVal(ShowPreview, *flagShowPreview) {
+						// since the preview window is built before the main
+						// window is shown ShowAll would also display the p
+						// review window by default. So we close it initially
+						b.togglePreview()
+					}
+
 					b.goToTop()
 					glib.IdleAdd(func() {
 						if b.window.IsVisible() {
@@ -565,6 +575,10 @@ func (b *BBClip) goToTop() {
 			b.repositionView()
 			return
 		}
+	}
+
+	if b.previewFrame.IsVisible() {
+		b.updatePreviewContent()
 	}
 }
 

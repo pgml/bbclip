@@ -26,6 +26,7 @@ const (
 	ImageHeight
 	ImagePreview
 	PreviewWidth
+	ShowPreview
 )
 
 type Option struct {
@@ -44,6 +45,7 @@ var options = map[ConfigOption]Option{
 	ImageHeight:    {"image-height", *flagImageHeight},
 	ImagePreview:   {"image-preview", *flagImagePreview},
 	PreviewWidth:   {"preview-width", *flagPreviewWidth},
+	ShowPreview:    {"show-preview", *flagShowPreview},
 }
 
 func (o ConfigOption) String() string {
