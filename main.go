@@ -26,6 +26,8 @@ const (
 	socketPath      = "/tmp/bbclip.sock"
 	userCssFileName = "style.css"
 	initialItems    = 20
+	defaultWidth    = 350
+	defaultHeight   = 450
 )
 
 //go:embed style.css
@@ -47,7 +49,7 @@ var (
 	flagImageSupport      = flag.Bool("image-support", false, "Whether to enable image support")
 	flagImageHeight       = flag.Int("image-height", 50, "Image height")
 	flagImagePreview      = flag.Bool("image-preview", true, "Whether to show a tiny preview of the image")
-	flagPreviewWidth      = flag.Int("preview-width", 350, "The width of the preview window")
+	flagPreviewWidth      = flag.Int("preview-width", 300, "The width of the preview window")
 	flagShowPreview       = flag.Bool("show-preview", false, "Whether to show the preview window by default when opening bbclip.")
 )
 
@@ -61,13 +63,20 @@ type BBClip struct {
 	// the windowWrapper which contains the item list and the preview
 	windowWrapper *gtk.Box
 
-	previewWrapper *gtk.ScrolledWindow
-
 	// previewFrame is the preview window
-	previewFrame *gtk.Frame
+	previewFrame       *gtk.Frame
+	previewScrolledWin *gtk.ScrolledWindow
 
-	preview       *gtk.TextView
-	previewBuffer *gtk.TextBuffer
+	// previewBox is the wrapper of the preview window containing
+	// the text view and the image box
+	previewBox *gtk.Box
+
+	previewTextView   *gtk.TextView
+	previewTextBuffer *gtk.TextBuffer
+
+	// previewImgBox is the GtkBox containing the preview image
+	previewImgBox *gtk.Box
+	previewImg    *gtk.Image
 
 	// popupWrapper is the window wrapper that contains the search field
 	// and the history entries
@@ -179,7 +188,7 @@ func (b *BBClip) buildUi() {
 func (b *BBClip) buildWindow() {
 	b.window.SetTitle("bellbird clipboard")
 	b.window.SetDecorated(false)
-	b.window.SetDefaultSize(400, 400)
+	b.window.SetDefaultSize(defaultWidth, defaultHeight)
 	b.window.SetResizable(false)
 	b.window.SetAppPaintable(true)
 	b.window.Connect("key-press-event", b.onKeyPress)
@@ -215,32 +224,42 @@ func (b *BBClip) buildEntriesList() {
 	b.entryItemsContent = make(map[int]HistoryEntry)
 
 	b.entriesListWrapper, _ = gtk.ScrolledWindowNew(nil, nil)
-	b.entriesListWrapper.SetSizeRequest(350, 450)
+	b.entriesListWrapper.SetSizeRequest(defaultWidth, defaultHeight)
 	b.entriesListWrapper.SetOverlayScrolling(true)
 	b.entriesListWrapper.Add(b.entriesList)
 }
 
 // buildPreview build the preview window containing a scrollable window,
-// a textview and a text buffer
+// a textview, a text buffer and an image
 func (b *BBClip) buildPreview() {
+	tagTable, _ := gtk.TextTagTableNew()
+	b.previewTextBuffer, _ = gtk.TextBufferNew(tagTable)
+	b.previewTextView, _ = gtk.TextViewNewWithBuffer(b.previewTextBuffer)
+	b.previewTextView.SetEditable(false)
+	b.previewTextView.SetCanFocus(false)
+	b.previewTextView.SetWrapMode(gtk.WRAP_NONE)
+
 	b.previewFrame, _ = gtk.FrameNew("")
 	b.previewFrame.SetShadowType(gtk.SHADOW_NONE)
 	b.previewFrame.SetAppPaintable(true)
-
-	tagTable, _ := gtk.TextTagTableNew()
-	b.previewBuffer, _ = gtk.TextBufferNew(tagTable)
-	b.preview, _ = gtk.TextViewNewWithBuffer(b.previewBuffer)
-	b.preview.SetEditable(false)
-	b.preview.SetCanFocus(false)
-
-	b.preview.SetWrapMode(gtk.WRAP_NONE)
-	b.previewFrame.Add(b.preview)
+	b.previewFrame.Add(b.previewTextView)
 
 	width := b.conf.IntVal(PreviewWidth, *flagPreviewWidth)
-	b.previewWrapper, _ = gtk.ScrolledWindowNew(nil, nil)
-	b.previewWrapper.Add(b.previewFrame)
-	b.previewWrapper.SetSizeRequest(width, 400)
-	b.windowWrapper.PackEnd(b.previewWrapper, false, false, 0)
+
+	b.previewScrolledWin, _ = gtk.ScrolledWindowNew(nil, nil)
+	b.previewScrolledWin.Add(b.previewFrame)
+	b.previewScrolledWin.SetSizeRequest(width, defaultHeight)
+
+	b.previewImg, _ = gtk.ImageNew()
+	b.previewImgBox, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
+	b.previewImgBox.PackStart(&b.previewImg.Widget, true, true, 0)
+
+	b.previewBox, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
+	b.previewBox.SetSizeRequest(width, defaultHeight)
+	b.previewBox.PackStart(b.previewScrolledWin, true, true, 0)
+	b.previewBox.PackEnd(b.previewImgBox, true, true, 0)
+
+	b.windowWrapper.PackEnd(b.previewBox, true, true, 0)
 }
 
 // togglePreview displays or hides the preview window depending on the
@@ -252,20 +271,81 @@ func (b *BBClip) togglePreview() {
 
 	width := b.conf.IntVal(PreviewWidth, *flagPreviewWidth)
 
-	if b.previewWrapper.IsVisible() {
-		b.previewWrapper.Hide()
+	if b.previewBox.IsVisible() {
+		b.previewBox.Hide()
 		b.window.Resize(400, 400)
 	} else {
-		b.previewWrapper.ShowAll()
+		b.previewBox.ShowAll()
 		b.updatePreviewContent()
 		b.window.Resize(400+width, 400)
 	}
 }
 
-func (b *BBClip) updatePreviewContent() {
+func (b *BBClip) updatePreviewContent() error {
 	row := b.entriesList.GetSelectedRow()
 	entry := b.entryItemsContent[row.GetIndex()]
-	b.previewBuffer.SetText(*entry.str)
+
+	b.previewScrolledWin.Hide()
+	b.previewImgBox.Hide()
+
+	if entry.img != nil {
+		b.previewImgBox.ShowAll()
+
+		parsedUrl, err := url.Parse(*entry.str)
+		if err != nil {
+			return err
+		}
+
+		imgPath := parsedUrl.Path
+		pixbuf, err := gdk.PixbufNewFromFile(imgPath)
+		if err != nil {
+			return err
+		}
+
+		var (
+			width      = b.conf.IntVal(PreviewWidth, *flagPreviewWidth)
+			height     = defaultHeight
+			origWidth  = pixbuf.GetWidth()
+			origHeight = pixbuf.GetHeight()
+		)
+
+		// Calculate aspect-preserving scale
+		scale := 1.0
+		if origWidth > width || origHeight > height {
+			scaleWidth := float64(width) / float64(origWidth)
+			scaleHeight := float64(height) / float64(origHeight)
+			scale = math.Min(scaleWidth, scaleHeight)
+		}
+
+		newWidth := int(float64(origWidth) * scale)
+		newHeight := int(float64(origHeight) * scale)
+
+		scaledPixBuf, _ := pixbuf.ScaleSimple(
+			newWidth,
+			newHeight,
+			gdk.INTERP_BILINEAR,
+		)
+
+		if b.previewImg != nil {
+			b.previewImgBox.Remove(&b.previewImg.Widget)
+		}
+
+		img, _ := gtk.ImageNewFromPixbuf(scaledPixBuf)
+		img.SetHAlign(gtk.ALIGN_CENTER)
+		img.Show()
+
+		b.previewImgBox.PackStart(&img.Widget, false, false, 0)
+		b.previewImg = img
+	} else {
+		if entry.str == nil {
+			return errors.New("no entry found")
+		}
+
+		b.previewScrolledWin.ShowAll()
+		b.previewTextBuffer.SetText(*entry.str)
+	}
+
+	return nil
 }
 
 // listenSocket sets up a Unix domain socket server to listen for incoming commands.
@@ -384,7 +464,7 @@ func (b *BBClip) handleKeyEvents(key *gdk.EventKey) bool {
 		}
 	}
 
-	if b.previewFrame.IsVisible() {
+	if b.previewBox.IsVisible() {
 		b.updatePreviewContent()
 	}
 
@@ -586,10 +666,6 @@ func (b *BBClip) goToTop() {
 			return
 		}
 	}
-
-	if b.previewFrame.IsVisible() {
-		b.updatePreviewContent()
-	}
 }
 
 func (b *BBClip) goToBottom() {
@@ -774,8 +850,8 @@ func (b *BBClip) applyStyles() {
 	b.addContextClass(&b.entriesListWrapper.Widget, "entries-list-wrapper")
 	b.addContextClass(&b.entriesList.Widget, "entries-list")
 	b.addContextClass(&b.windowWrapper.Widget, "popup-wrapper")
-	b.addContextClass(&b.previewWrapper.Widget, "preview-wrapper")
-	b.addContextClass(&b.preview.Widget, "preview")
+	b.addContextClass(&b.previewBox.Widget, "preview-wrapper")
+	b.addContextClass(&b.previewTextView.Widget, "preview")
 }
 
 func (b *BBClip) injectUserStyles(screen *gdk.Screen) error {
