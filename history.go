@@ -211,7 +211,10 @@ func (h *History) Save() error {
 
 func (h *History) WriteToClipboard(entry HistoryEntry) error {
 	mimeType := "text/plain"
-	cpContent := *entry.str
+	cpContent := ""
+	if entry.str != nil {
+		cpContent = *entry.str
+	}
 
 	if entry.img != nil {
 		mimeType = "text/uri-list"
@@ -245,21 +248,33 @@ func (h *History) removeEntry(index int) (int, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	if index >= len(h.entries) {
+	// get a copy of the reversed entries
+	rEntries := Reverse(h.entries)
+	if index >= len(rEntries) {
 		return -1, errors.New("No entry found")
 	}
 
 	// check if we're deleting the last entry (which would be the first
 	// entry in the history view in the gui)
-	isLastEntry := index == len(h.entries)-1
+	isLastEntry := index == 0
 
-	h.entries = slices.Delete(h.entries, index, index+1)
+	rEntries = slices.Delete(rEntries, index, index+1)
+
+	// empty clipboard if there are no entries
+	if len(rEntries) == 0 {
+		h.WriteToClipboard(HistoryEntry{})
+	}
 
 	// is last entry, we set the clipboard to the new last entry
 	// so that the goroutine doesn't override our deletion
-	if isLastEntry {
-		h.WriteToClipboard(h.entries[len(h.entries)-1])
+	if isLastEntry && len(rEntries) > 0 {
+		h.WriteToClipboard(rEntries[0])
 	}
+
+	// reverse the the copy of the entries again and save to the
+	// original entries slice so that we can save the history
+	// in the correct order
+	h.entries = Reverse(rEntries)
 
 	if err := h.Save(); err != nil {
 		println("Could not save to clipboard history:", err)

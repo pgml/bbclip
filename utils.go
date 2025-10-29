@@ -121,3 +121,16 @@ func urlToCachePath(imgUrl string) string {
 	fname := path.Base(imgUrl)
 	return cacheDir + "/" + fname
 }
+
+// Reverse returns a new slice with the elements of the input
+// slice in reverse order.
+func Reverse[T any](arr []T) []T {
+	n := len(arr)
+	reversed := make([]T, n)
+
+	for i := range n {
+		reversed[i] = arr[n-1-i]
+	}
+
+	return reversed
+}

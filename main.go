@@ -2,9 +2,11 @@ package main
 
 import (
 	_ "embed"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"net/url"
 	"os"
@@ -466,12 +468,20 @@ func (b *BBClip) deleteSelectedRow() {
 	}
 
 	row := b.entriesList.GetSelectedRow()
+	if row == nil {
+		return
+	}
+
 	rowIndex := row.GetIndex()
 	rowName, _ := row.GetName()
 	entryIndex, _ := strconv.Atoi(rowName)
 
 	if index, _ := b.history.removeEntry(entryIndex); index > -1 {
 		b.refreshEntryList(0, b.history.maxEntries)
+
+		if len(b.history.entries) == 0 {
+			return
+		}
 
 		// move the selection to the same spot the deletion took place
 		rowIndex = Clamp(rowIndex, 0, len(b.history.entries)-1)
@@ -628,11 +638,13 @@ func (b *BBClip) refreshEntryList(from int, to int) {
 		}
 	}
 
-	entries := b.history.entries
+	// get a copy of the entries in reversed order so that we can
+	// display the last added history entry as the first item
+	entries := Reverse(b.history.entries)
 
-	c := from
-	for i := len(entries) - 1; i >= 0; i-- {
-		if c < from || c >= to {
+	for i := range entries {
+		// skip certain entries
+		if i < from || i > to {
 			continue
 		}
 
@@ -704,8 +716,6 @@ func (b *BBClip) refreshEntryList(from int, to int) {
 
 		b.entriesList.Add(row)
 		b.entryItemsContent[row.GetIndex()] = entry
-
-		c++
 	}
 
 	b.entriesList.GrabFocus()
