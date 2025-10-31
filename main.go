@@ -2,11 +2,9 @@ package main
 
 import (
 	_ "embed"
-	"errors"
 	"flag"
 	"fmt"
 	"log"
-	"math"
 	"net"
 	"net/url"
 	"os"
@@ -53,30 +51,27 @@ var (
 	flagShowPreview       = flag.Bool("show-preview", false, "Whether to show the preview window by default when opening bbclip.")
 )
 
+type EntriesList struct {
+	// entriesListScrolledWin is the scrolled window view containing the
+	// history entries
+	scrolledWin *gtk.ScrolledWindow
+	// entriesList is the history entries list view
+	box   *gtk.ListBox
+	items map[int]HistoryEntry
+}
+
 type BBClip struct {
 	// history is the clipboard history
 	history *History
+	conf    *Config
 
 	// window is the gtk window
 	window *gtk.Window
-
 	// the windowWrapper which contains the item list and the preview
 	windowWrapper *gtk.Box
 
-	// previewFrame is the preview window
-	previewFrame       *gtk.Frame
-	previewScrolledWin *gtk.ScrolledWindow
-
-	// previewBox is the wrapper of the preview window containing
-	// the text view and the image box
-	previewBox *gtk.Box
-
-	previewTextView   *gtk.TextView
-	previewTextBuffer *gtk.TextBuffer
-
-	// previewImgBox is the GtkBox containing the preview image
-	previewImgBox *gtk.Box
-	previewImg    *gtk.Image
+	preview     *Preview
+	entriesList *EntriesList
 
 	// popupWrapper is the window wrapper that contains the search field
 	// and the history entries
@@ -85,21 +80,10 @@ type BBClip struct {
 	// search is the search input field
 	search *gtk.Entry
 
-	// entriesListWrapper is the scrolled window view containing the
-	// history entries
-	entriesListWrapper *gtk.ScrolledWindow
-
-	// entriesList is the history entries list view
-	entriesList *gtk.ListBox
-
-	entryItemsContent map[int]HistoryEntry
-
 	// cssProvider is the gtk css provider
 	cssProvider *gtk.CssProvider
 
 	visTime time.Time
-
-	conf *Config
 }
 
 func main() {
@@ -133,7 +117,7 @@ func main() {
 			// since the preview window is built before the main window is shown
 			// ShowAll would also display the preview window by default.
 			// So we close it initially
-			bbclip.togglePreview()
+			bbclip.preview.toggle()
 		}
 
 		glib.IdleAdd(func() {
@@ -163,8 +147,6 @@ func (b *BBClip) buildUi() {
 		log.Fatal("Unable to create window:", err)
 	}
 
-	b.windowWrapper, _ = gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 8)
-
 	if b.conf.BoolVal(LayerShell, *flagLayerShell) {
 		b.buildLayerShell()
 	}
@@ -176,10 +158,14 @@ func (b *BBClip) buildUi() {
 
 	b.popupWrapper, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 8)
 	b.popupWrapper.PackStart(b.search, true, true, 0)
-	b.popupWrapper.PackStart(b.entriesListWrapper, true, true, 0)
-	b.windowWrapper.PackStart(b.popupWrapper, true, true, 8)
+	b.popupWrapper.PackStart(b.entriesList.scrolledWin, true, true, 0)
 
-	b.buildPreview()
+	b.preview = NewPreview(b.conf, b.entriesList, b.window)
+
+	b.windowWrapper, _ = gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 8)
+	b.windowWrapper.PackStart(b.popupWrapper, true, true, 8)
+	b.windowWrapper.PackEnd(b.preview.box, true, true, 0)
+
 	b.applyStyles()
 
 	b.window.Add(b.windowWrapper)
@@ -217,135 +203,17 @@ func (b *BBClip) buildSearchBar() {
 }
 
 func (b *BBClip) buildEntriesList() {
-	b.entriesList, _ = gtk.ListBoxNew()
-	b.entriesList.SetSelectionMode(gtk.SELECTION_SINGLE)
-	b.entriesList.SetMarginBottom(6)
-	b.entriesList.Connect("row-activated", b.onRowActivated)
-	b.entryItemsContent = make(map[int]HistoryEntry)
+	b.entriesList = &EntriesList{}
+	b.entriesList.box, _ = gtk.ListBoxNew()
+	b.entriesList.box.SetSelectionMode(gtk.SELECTION_SINGLE)
+	b.entriesList.box.SetMarginBottom(6)
+	b.entriesList.box.Connect("row-activated", b.onRowActivated)
+	b.entriesList.items = make(map[int]HistoryEntry)
 
-	b.entriesListWrapper, _ = gtk.ScrolledWindowNew(nil, nil)
-	b.entriesListWrapper.SetSizeRequest(defaultWidth, defaultHeight)
-	b.entriesListWrapper.SetOverlayScrolling(true)
-	b.entriesListWrapper.Add(b.entriesList)
-}
-
-// buildPreview build the preview window containing a scrollable window,
-// a textview, a text buffer and an image
-func (b *BBClip) buildPreview() {
-	tagTable, _ := gtk.TextTagTableNew()
-	b.previewTextBuffer, _ = gtk.TextBufferNew(tagTable)
-	b.previewTextView, _ = gtk.TextViewNewWithBuffer(b.previewTextBuffer)
-	b.previewTextView.SetEditable(false)
-	b.previewTextView.SetCanFocus(false)
-	b.previewTextView.SetWrapMode(gtk.WRAP_NONE)
-
-	b.previewFrame, _ = gtk.FrameNew("")
-	b.previewFrame.SetShadowType(gtk.SHADOW_NONE)
-	b.previewFrame.SetAppPaintable(true)
-	b.previewFrame.Add(b.previewTextView)
-
-	width := b.conf.IntVal(PreviewWidth, *flagPreviewWidth)
-
-	b.previewScrolledWin, _ = gtk.ScrolledWindowNew(nil, nil)
-	b.previewScrolledWin.Add(b.previewFrame)
-	b.previewScrolledWin.SetSizeRequest(width, defaultHeight)
-
-	b.previewImg, _ = gtk.ImageNew()
-	b.previewImgBox, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
-	b.previewImgBox.PackStart(&b.previewImg.Widget, true, true, 0)
-
-	b.previewBox, _ = gtk.BoxNew(gtk.ORIENTATION_VERTICAL, 0)
-	b.previewBox.SetSizeRequest(width, defaultHeight)
-	b.previewBox.PackStart(b.previewScrolledWin, true, true, 0)
-	b.previewBox.PackEnd(b.previewImgBox, true, true, 0)
-
-	b.windowWrapper.PackEnd(b.previewBox, true, true, 0)
-}
-
-// togglePreview displays or hides the preview window depending on the
-// current visibility
-func (b *BBClip) togglePreview() {
-	if b.search.HasFocus() {
-		return
-	}
-
-	width := b.conf.IntVal(PreviewWidth, *flagPreviewWidth)
-
-	if b.previewBox.IsVisible() {
-		b.previewBox.Hide()
-		b.window.Resize(400, 400)
-	} else {
-		b.previewBox.ShowAll()
-		b.updatePreviewContent()
-		b.window.Resize(400+width, 400)
-	}
-}
-
-func (b *BBClip) updatePreviewContent() error {
-	row := b.entriesList.GetSelectedRow()
-	entry := b.entryItemsContent[row.GetIndex()]
-
-	b.previewScrolledWin.Hide()
-	b.previewImgBox.Hide()
-
-	if entry.img != nil {
-		b.previewImgBox.ShowAll()
-
-		parsedUrl, err := url.Parse(*entry.str)
-		if err != nil {
-			return err
-		}
-
-		imgPath := parsedUrl.Path
-		pixbuf, err := gdk.PixbufNewFromFile(imgPath)
-		if err != nil {
-			return err
-		}
-
-		var (
-			width      = b.conf.IntVal(PreviewWidth, *flagPreviewWidth)
-			height     = defaultHeight
-			origWidth  = pixbuf.GetWidth()
-			origHeight = pixbuf.GetHeight()
-		)
-
-		// Calculate aspect-preserving scale
-		scale := 1.0
-		if origWidth > width || origHeight > height {
-			scaleWidth := float64(width) / float64(origWidth)
-			scaleHeight := float64(height) / float64(origHeight)
-			scale = math.Min(scaleWidth, scaleHeight)
-		}
-
-		newWidth := int(float64(origWidth) * scale)
-		newHeight := int(float64(origHeight) * scale)
-
-		scaledPixBuf, _ := pixbuf.ScaleSimple(
-			newWidth,
-			newHeight,
-			gdk.INTERP_BILINEAR,
-		)
-
-		if b.previewImg != nil {
-			b.previewImgBox.Remove(&b.previewImg.Widget)
-		}
-
-		img, _ := gtk.ImageNewFromPixbuf(scaledPixBuf)
-		img.SetHAlign(gtk.ALIGN_CENTER)
-		img.Show()
-
-		b.previewImgBox.PackStart(&img.Widget, false, false, 0)
-		b.previewImg = img
-	} else {
-		if entry.str == nil {
-			return errors.New("no entry found")
-		}
-
-		b.previewScrolledWin.ShowAll()
-		b.previewTextBuffer.SetText(*entry.str)
-	}
-
-	return nil
+	b.entriesList.scrolledWin, _ = gtk.ScrolledWindowNew(nil, nil)
+	b.entriesList.scrolledWin.SetSizeRequest(defaultWidth, defaultHeight)
+	b.entriesList.scrolledWin.SetOverlayScrolling(true)
+	b.entriesList.scrolledWin.Add(b.entriesList.box)
 }
 
 // listenSocket sets up a Unix domain socket server to listen for incoming commands.
@@ -382,7 +250,7 @@ func (b *BBClip) listenSocket() {
 						// since the preview window is built before the main
 						// window is shown ShowAll would also display the p
 						// review window by default. So we close it initially
-						b.togglePreview()
+						b.preview.toggle()
 					}
 
 					b.goToTop()
@@ -424,7 +292,7 @@ func (b *BBClip) handleKeyEvents(key *gdk.EventKey) bool {
 		b.deleteSelectedRow()
 	case "Return":
 		if b.entriesList != nil && sinceShow > 200*time.Millisecond {
-			row := b.entriesList.GetSelectedRow()
+			row := b.entriesList.box.GetSelectedRow()
 			b.selectAndHide(row)
 		}
 
@@ -441,7 +309,9 @@ func (b *BBClip) handleKeyEvents(key *gdk.EventKey) bool {
 		b.goToBottom()
 
 	case "p":
-		b.togglePreview()
+		if !b.search.HasFocus() {
+			b.preview.toggle()
+		}
 
 	case "i", "slash":
 		if !b.search.HasFocus() {
@@ -464,8 +334,8 @@ func (b *BBClip) handleKeyEvents(key *gdk.EventKey) bool {
 		}
 	}
 
-	if b.previewBox.IsVisible() {
-		b.updatePreviewContent()
+	if b.preview.box.IsVisible() {
+		b.preview.update()
 	}
 
 	return false
@@ -475,7 +345,7 @@ func (b *BBClip) handleKeyEvents(key *gdk.EventKey) bool {
 // on the given search query and automatically selects the first result.
 // If ignoreCase is true the search is case insensitive.
 func (b *BBClip) searchAndFocus(query string, ignoreCase bool) {
-	b.entriesList.GetChildren().Foreach(func(item any) {
+	b.entriesList.box.GetChildren().Foreach(func(item any) {
 		widget := item.(*gtk.Widget)
 
 		row := gtk.ListBoxRow{
@@ -486,7 +356,7 @@ func (b *BBClip) searchAndFocus(query string, ignoreCase bool) {
 			},
 		}
 
-		rowContent := *b.entryItemsContent[row.GetIndex()].str
+		rowContent := *b.entriesList.items[row.GetIndex()].str
 
 		if ignoreCase {
 			rowContent = strings.ToLower(rowContent)
@@ -506,8 +376,8 @@ func (b *BBClip) searchAndFocus(query string, ignoreCase bool) {
 // focusEntryList focues the clipboard history and removes focus
 // from the search fields.
 func (b *BBClip) focusEntryList() {
-	b.entriesList.SetCanFocus(true)
-	b.entriesList.GrabFocus()
+	b.entriesList.box.SetCanFocus(true)
+	b.entriesList.box.GrabFocus()
 	b.search.SetCanFocus(false)
 }
 
@@ -519,7 +389,7 @@ func (b *BBClip) selectAndHide(row *gtk.ListBoxRow) {
 		return
 	}
 
-	entry := b.entryItemsContent[row.GetIndex()]
+	entry := b.entriesList.items[row.GetIndex()]
 
 	if *entry.str == "" {
 		b.window.Hide()
@@ -547,7 +417,7 @@ func (b *BBClip) deleteSelectedRow() {
 		return
 	}
 
-	row := b.entriesList.GetSelectedRow()
+	row := b.entriesList.box.GetSelectedRow()
 	if row == nil {
 		return
 	}
@@ -565,10 +435,10 @@ func (b *BBClip) deleteSelectedRow() {
 
 		// move the selection to the same spot the deletion took place
 		rowIndex = Clamp(rowIndex, 0, len(b.history.entries)-1)
-		prevRow := b.entriesList.GetRowAtIndex(rowIndex)
+		prevRow := b.entriesList.box.GetRowAtIndex(rowIndex)
 
 		if prevRow.IsVisible() {
-			b.entriesList.SelectRow(prevRow)
+			b.entriesList.box.SelectRow(prevRow)
 		}
 	}
 }
@@ -579,7 +449,7 @@ func (b *BBClip) rowUp() {
 		return
 	}
 
-	selectedRow := b.entriesList.GetSelectedRow()
+	selectedRow := b.entriesList.box.GetSelectedRow()
 	if selectedRow == nil {
 		return
 	}
@@ -588,9 +458,9 @@ func (b *BBClip) rowUp() {
 
 	// look for visible lines only
 	for prevIndex := index - 1; prevIndex >= 0; prevIndex-- {
-		prevRow := b.entriesList.GetRowAtIndex(prevIndex)
+		prevRow := b.entriesList.box.GetRowAtIndex(prevIndex)
 		if prevRow.IsVisible() {
-			b.entriesList.SelectRow(prevRow)
+			b.entriesList.box.SelectRow(prevRow)
 			b.repositionView()
 			break
 		}
@@ -603,19 +473,19 @@ func (b *BBClip) rowDown() {
 		return
 	}
 
-	selectedRow := b.entriesList.GetSelectedRow()
+	selectedRow := b.entriesList.box.GetSelectedRow()
 	if selectedRow == nil {
 		return
 	}
 
 	index := selectedRow.GetIndex()
-	rowCount := int(b.entriesList.GetChildren().Length())
+	rowCount := int(b.entriesList.box.GetChildren().Length())
 
 	// look for visible lines only
 	for nextIndex := index + 1; nextIndex < rowCount; nextIndex++ {
-		nextRow := b.entriesList.GetRowAtIndex(nextIndex)
+		nextRow := b.entriesList.box.GetRowAtIndex(nextIndex)
 		if nextRow.IsVisible() {
-			b.entriesList.SelectRow(nextRow)
+			b.entriesList.box.SelectRow(nextRow)
 			b.repositionView()
 			break
 		}
@@ -645,8 +515,8 @@ func (b *BBClip) halfViewDown() {
 }
 
 func (b *BBClip) rowInfo() (rowHeight int, listViewHeight int, rowsInView int) {
-	rowHeight = b.entriesList.GetSelectedRow().GetAllocatedHeight()
-	listViewHeight = b.entriesListWrapper.GetAllocatedHeight()
+	rowHeight = b.entriesList.box.GetSelectedRow().GetAllocatedHeight()
+	listViewHeight = b.entriesList.scrolledWin.GetAllocatedHeight()
 	rowsInView = listViewHeight / rowHeight
 
 	return rowHeight, listViewHeight, rowsInView
@@ -655,13 +525,13 @@ func (b *BBClip) rowInfo() (rowHeight int, listViewHeight int, rowsInView int) {
 // goToTop moves the selection to the first row of the list and
 // repositions the view
 func (b *BBClip) goToTop() {
-	rowCount := int(b.entriesList.GetChildren().Length())
+	rowCount := int(b.entriesList.box.GetChildren().Length())
 
 	for nextIndex := range rowCount {
-		nextRow := b.entriesList.GetRowAtIndex(nextIndex)
+		nextRow := b.entriesList.box.GetRowAtIndex(nextIndex)
 
 		if nextRow.IsVisible() {
-			b.entriesList.SelectRow(nextRow)
+			b.entriesList.box.SelectRow(nextRow)
 			b.repositionView()
 			return
 		}
@@ -669,16 +539,16 @@ func (b *BBClip) goToTop() {
 }
 
 func (b *BBClip) goToBottom() {
-	rowCount := int(b.entriesList.GetChildren().Length())
-	index := b.entriesList.GetRowAtIndex(rowCount - 1)
-	b.entriesList.SelectRow(index)
+	rowCount := int(b.entriesList.box.GetChildren().Length())
+	index := b.entriesList.box.GetRowAtIndex(rowCount - 1)
+	b.entriesList.box.SelectRow(index)
 	b.repositionView()
 }
 
 // repositionView adjusts the view to the selected row
 func (b *BBClip) repositionView() {
-	alloc := b.entriesList.GetSelectedRow().GetAllocation()
-	vadj := b.entriesListWrapper.GetVAdjustment()
+	alloc := b.entriesList.box.GetSelectedRow().GetAllocation()
+	vadj := b.entriesList.scrolledWin.GetVAdjustment()
 	upper := vadj.GetValue() + vadj.GetPageSize()
 
 	if float64(alloc.GetY()) < vadj.GetValue() {
@@ -706,10 +576,10 @@ func (b *BBClip) refreshEntryList(from int, to int) {
 	// if from is greater than zero we're most likely want to append
 	// to the existing list rather than rebuilding
 	if from == 0 {
-		children := b.entriesList.GetChildren()
+		children := b.entriesList.box.GetChildren()
 		for e := children; e != nil; e = e.Next() {
 			child := e.Data().(*gtk.Widget)
-			b.entriesList.Remove(child)
+			b.entriesList.box.Remove(child)
 			child.Destroy()
 		}
 	}
@@ -790,11 +660,11 @@ func (b *BBClip) refreshEntryList(from int, to int) {
 
 		b.addContextClass(row.ToWidget(), "entries-list-row")
 
-		b.entriesList.Add(row)
-		b.entryItemsContent[row.GetIndex()] = entry
+		b.entriesList.box.Add(row)
+		b.entriesList.items[row.GetIndex()] = entry
 	}
 
-	b.entriesList.GrabFocus()
+	b.entriesList.box.GrabFocus()
 	b.search.SetCanFocus(false)
 	b.search.SetText("")
 }
@@ -847,11 +717,11 @@ func (b *BBClip) applyStyles() {
 	}
 
 	b.addContextClass(&b.search.Widget, "search")
-	b.addContextClass(&b.entriesListWrapper.Widget, "entries-list-wrapper")
-	b.addContextClass(&b.entriesList.Widget, "entries-list")
+	b.addContextClass(&b.entriesList.scrolledWin.Widget, "entries-list-wrapper")
+	b.addContextClass(&b.entriesList.box.Widget, "entries-list")
 	b.addContextClass(&b.windowWrapper.Widget, "popup-wrapper")
-	b.addContextClass(&b.previewBox.Widget, "preview-wrapper")
-	b.addContextClass(&b.previewTextView.Widget, "preview")
+	b.addContextClass(&b.preview.box.Widget, "preview-wrapper")
+	b.addContextClass(&b.preview.textView.Widget, "preview")
 }
 
 func (b *BBClip) injectUserStyles(screen *gdk.Screen) error {
@@ -927,23 +797,6 @@ func tryConnectSocket() bool {
 	return true
 }
 
-// TruncateText shortens the given text to fit within maxWidth.
-// If the text exceeds maxWidth, it appends "..." (if possible).
-func TruncateText(text string, maxWidth int) string {
-	runes := []rune(text)
-	if len(runes) > maxWidth {
-		if maxWidth > 3 {
-			return string(runes[:maxWidth-3]) + "..."
-		}
-		return string(runes[:maxWidth]) // No space for "..."
-	}
-	return text
-}
-
-func Clamp(v, lower, upper int) int {
-	return min(max(v, lower), upper)
-}
-
 func printVersion() {
 	if dev != "" {
 		fmt.Printf("%s %s-dev.%s\n", "bbclip", version, commit)
@@ -952,14 +805,4 @@ func printVersion() {
 	if commit != "" && dev == "" {
 		fmt.Printf("%s %s (%s)\n", "bbclip", version, commit)
 	}
-}
-
-func IsFlagPassed(name string) bool {
-	found := false
-	flag.Visit(func(f *flag.Flag) {
-		if f.Name == name {
-			found = true
-		}
-	})
-	return found
 }

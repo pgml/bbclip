@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"io"
 	"log"
 	"net/http"
@@ -133,4 +134,31 @@ func Reverse[T any](arr []T) []T {
 	}
 
 	return reversed
+}
+
+// TruncateText shortens the given text to fit within maxWidth.
+// If the text exceeds maxWidth, it appends "..." (if possible).
+func TruncateText(text string, maxWidth int) string {
+	runes := []rune(text)
+	if len(runes) > maxWidth {
+		if maxWidth > 3 {
+			return string(runes[:maxWidth-3]) + "..."
+		}
+		return string(runes[:maxWidth]) // No space for "..."
+	}
+	return text
+}
+
+func Clamp(v, lower, upper int) int {
+	return min(max(v, lower), upper)
+}
+
+func IsFlagPassed(name string) bool {
+	found := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
 }
