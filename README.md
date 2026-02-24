@@ -80,6 +80,7 @@ Create a `style.css` in `~/.config/bbclip/` and use the following classes:
  * wl-clipboard
  * libgtk-3-0
  * libglib2.0-0
+ * libgtk-layer-shell0
 
 ## Build dependencies
 
