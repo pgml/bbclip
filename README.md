@@ -1,3 +1,8 @@
+> [!NOTE]
+> ### This project is currently being rewritten in C. (https://codeberg.org/pgml/bbclip)
+> ### Can't afford to buy more RAM, need to save where I can.
+> 
+
 # bbclip
 
 A simple clipboard history manager that I made because i missed klipper after I
